@@ -1,0 +1,51 @@
+[tool.poetry]
+name = "cluster-api"
+version = "0.1.0"
+description = "TODO"
+authors = ["Golem Factory <contact@golem.network>"]
+readme = "README.md"
+packages = [{ include = "clusterapi" }]
+
+[[tool.poetry.source]]
+name = "test-pypi"
+url = "https://test.pypi.org/simple/"
+priority = "explicit"
+
+[tool.poetry.dependencies]
+python = "^3.8.1"
+golem-core = "^0.7.3"
+ray-on-golem = {version = "^0.11.0a1", source = "test-pypi"}
+fastapi = "^0.111.0"
+
+[tool.poetry.group.dev.dependencies]
+autoflake = "^1"
+black = "^23.7.0"
+isort = "^5"
+
+poethepoet = "^0.8"
+
+[tool.poe.tasks]
+format = {sequence = ["_format_autoflake", "_format_isort", "_format_black"], help = "Run code auto formatting"}
+_format_autoflake = "autoflake ."
+_format_isort = "isort ."
+_format_black = "black ."
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.isort]
+profile = "black"
+py_version = 38
+line_length = 100
+skip_gitignore = true
+
+[tool.autoflake]
+recursive = true
+in-place = true
+remove-all-unused-imports = true
+ignore-init-module-imports = true
+
+[tool.black]
+line-length = 100
+target-version = ['py38']
