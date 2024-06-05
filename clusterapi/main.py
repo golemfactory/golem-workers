@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from typing import Dict, List
 
 from fastapi import FastAPI, HTTPException
+from golem.exceptions import GolemException
 from golem.managers import (
     DefaultAgreementManager,
     DefaultProposalManager,
@@ -17,16 +18,25 @@ from golem.node import GolemNode
 from golem.utils.logging import DEFAULT_LOGGING
 from ray_on_golem.server.services.golem import DriverListAllocationPaymentManager
 
-from clusterapi.golem_helpers import (
-    ClusterAPIDemandManager,
-    NodeConfigNegotiator,
-    ProposalGenHelper,
+from clusterapi.golem import ClusterAPIDemandManager, NodeConfigNegotiator, ProposalPool
+from clusterapi.models import (
+    CreateClusterBody,
+    CreateNodesBody,
+    CreateProposalPoolBody,
+    DeleteClusterBody,
+    DeleteNodeBody,
+    DeleteProposalPoolBody,
+    ExecuteCommandsBody,
+    GetClusterBody,
+    GetCommandsBody,
+    GetNodeBody,
+    GetProposalsBody,
+    NodeConfig,
 )
-from clusterapi.models import ClusterConfig, CreateNodePayload, PayloadConfig
 
 logging.config.dictConfig(DEFAULT_LOGGING)
 
-storage: Dict[str, ClusterConfig] = {}
+storage: Dict[str, NodeConfig] = {}  # TODO store more then just `NodeConfig`
 golem = GolemNode()
 payment_manager: PaymentManager = DriverListAllocationPaymentManager(
     golem,
@@ -49,66 +59,87 @@ async def lifespan(cluster_api: FastAPI):
 cluster_api = FastAPI(lifespan=lifespan)
 
 
-@cluster_api.get("/offers")
-async def get_offers(payload_config: PayloadConfig):
+@cluster_api.post("/get-proposals")
+async def get_proposals(body: GetProposalsBody):
     """Read proposals from Yagna marketplace based on given `payload_config`"""
+    # We need manager so it unsubscribe Demands at the end
     manager = ClusterAPIDemandManager(  # TODO `Refreshing` is an overkill
         golem,
         get_allocation=payment_manager.get_allocation,
-        payloads=[payload_config.payload],
+        payloads=body.node_config.custom_payloads,
     )
     demand_managers.append(manager)
     await manager.start()
-    await asyncio.sleep(1)
-    offers = manager.get_initial_proposals()
-    offers = [await o.get_proposal_data() for o in offers]
+    await asyncio.sleep(0.5)
+
+    # TODO add proposal manager + way to get all items within the buffer (use buffer maybe)
+
+    proposals = manager.get_initial_proposals()
+    proposals = [await o.get_proposal_data() for o in proposals]
     return [
         {
-            "proposal_id": o.proposal_id,
-            "issuer_id": o.issuer_id,
-            "state": o.state,
-            "timestamp": o.timestamp,
-            "prev_proposal_id": o.prev_proposal_id,
-            "properties": o.properties,
-            # "constraints": o.constraints,
+            "proposal_id": p.proposal_id,
+            "issuer_id": p.issuer_id,
+            "state": p.state,
+            "timestamp": p.timestamp,
+            "prev_proposal_id": p.prev_proposal_id,
+            "properties": p.properties,
+            "constraints": p.constraints.serialize(),
         }
-        for o in offers
+        for p in proposals
     ]
 
 
-@cluster_api.post("/cluster")
-async def post_cluster(cluster_config: ClusterConfig):
+@cluster_api.post("/create-proposal-pool")
+async def create_proposal_pool(body: CreateProposalPoolBody):
+    ...
+
+
+@cluster_api.post("/delete-proposal-pool")
+async def delete_proposal_pool(body: DeleteProposalPoolBody):
+    ...
+
+
+@cluster_api.post("/create-cluster")
+async def create_cluster(body: CreateClusterBody):
     """Create cluster. Save given cluster configuration."""
-    if cluster_config.id_ in storage:
+    if body.cluster_id in storage:
         raise HTTPException(status_code=409, detail="Cluster config already exists")
-    storage[cluster_config.id_] = cluster_config
-    return cluster_config.id_
+    storage[body.cluster_id] = body.node_config
+    return body.cluster_id
 
 
-@cluster_api.patch("/cluster")
-async def patch_cluster(cluster_config: ClusterConfig):
-    """Updates cluster. Save given cluster configuration."""
-    if cluster_config.id_ not in storage:
+@cluster_api.post("/get-cluster")
+async def get_cluster(body: GetClusterBody):
+    """Read cluster info and status."""
+    if body.cluster_id not in storage:
         raise HTTPException(status_code=404, detail="Cluster config does not exists")
-    storage[cluster_config.id_] = cluster_config
-    return cluster_config.id_
+
+    return storage[body.cluster_id]
 
 
-@cluster_api.post("/cluster/{cluster_id}/node")
-async def post_cluster_node(cluster_id: str, payload: CreateNodePayload):
+@cluster_api.post("/delete-cluster")
+async def delete_cluster(body: DeleteClusterBody):
+    """Read cluster info and status."""
+    if body.cluster_id not in storage:
+        raise HTTPException(status_code=404, detail="Cluster config does not exists")
+
+    del storage[body.cluster_id]
+
+
+@cluster_api.post("/create-nodes")
+async def create_nodes(body: CreateNodesBody):
     """Create node. Apply logic from cluster configuration."""
-    if cluster_id not in storage:
+    if body.cluster_id not in storage:
         raise HTTPException(status_code=404, detail="Cluster config does not exists")
 
-    cluster_config: ClusterConfig = storage[cluster_id]
-    node_config_negotiator = NodeConfigNegotiator(cluster_config.node_config)
+    node_config: NodeConfig = storage[body.cluster_id]
+    node_config_negotiator = NodeConfigNegotiator(node_config.node_config_data)
     await node_config_negotiator.setup()
-
-    get_proposal_callable = ProposalGenHelper(golem, payload.proposal_ids)
 
     proposal_manager = DefaultProposalManager(
         golem,
-        get_proposal_callable,
+        ProposalPool(golem, body.proposal_ids).get_proposal,
         plugins=(
             NegotiatingPlugin(
                 proposal_negotiators=[
@@ -119,7 +150,7 @@ async def post_cluster_node(cluster_id: str, payload: CreateNodePayload):
             ProposalBuffer(
                 min_size=0,
                 max_size=4,
-                fill_concurrency_size=4,
+                fill_concurrency_size=2,
             ),
         ),
     )
@@ -128,25 +159,28 @@ async def post_cluster_node(cluster_id: str, payload: CreateNodePayload):
     async with proposal_manager, agreement_manager:
         try:
             agreement = await agreement_manager.get_agreement()
-        except StopAsyncIteration as err:
+        except GolemException as err:
             raise HTTPException(status_code=400, detail=repr(err))
 
     return {"agreement_id": agreement.id}
 
 
-@cluster_api.get("/cluster/{cluster_id}/node/{node_id}")
-async def get_cluster_node(cluster_id: str, node_id: str):
+@cluster_api.post("/get-node")
+async def get_node(body: GetNodeBody):
     """Read node info and status"""
     ...
 
 
-@cluster_api.delete("/cluster/{cluster_id}/node/{node_id}")
-async def delete_cluster_node(cluster_id: str, node_id: str):
-    """Delete cluster node."""
+@cluster_api.post("/delete-node")
+async def delete_node(body: DeleteNodeBody):
     ...
 
 
-@cluster_api.get("/cluster/{cluster_id}")
-async def get_cluster(cluster_id: str):
-    """Read cluster info and status."""
+@cluster_api.post("/execute-commands")
+async def execute_commands(body: ExecuteCommandsBody):
+    ...
+
+
+@cluster_api.post("/get-commands-result")
+async def get_command_result(body: GetCommandsBody):
     ...
