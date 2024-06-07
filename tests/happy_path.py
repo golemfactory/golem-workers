@@ -15,6 +15,7 @@ def main():
     assert response.status_code == 200, f"{response.status_code} GET-PROPOSALS {response.text}"
     proposal_ids = [r["proposal_id"] for r in response.json()]
     print(proposal_ids)
+    assert len(proposal_ids) > 0
 
     response = requests.post(
         "http://127.0.0.1:8000/delete-cluster",
@@ -37,8 +38,8 @@ def main():
                 "node_config_data": {
                     "subnet_tag": "public",
                     "demand": {
-                        "image_hash": "1a0f2d0b1512018445a028c8f46151969ef8ddaaf3435ae118d3071d",
-                        # "image_tag": "string",
+                        # "image_hash": "1a0f2d0b1512018445a028c8f46151969ef8ddaaf3435ae118d3071d",
+                        "image_tag": "blueshade/ray-on-golem:0.11.0a2-py3.10.13-ray2.9.3",
                         # "capabilities": [
                         #     "vpn",
                         #     "inet",

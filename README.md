@@ -1,9 +1,15 @@
 # cluster-api
 
-## Considerations
+Before running fill `SSH_KEY_USER` and `SSH_KEY_PATH` in `clusterapi/main.py`
 
-- When calling `/offers` an demand is created. This Demand then ca be used as base for negotiations.
+To start CLuster API
 
-    Q: How to persist those demands?
+```bash
+fastapi dev clusterapi/main.py
+```
 
-- Foo
+TO run test script
+
+```bash
+python tests/happy_path.py 
+```

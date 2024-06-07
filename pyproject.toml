@@ -14,7 +14,8 @@ priority = "explicit"
 [tool.poetry.dependencies]
 python = "^3.8.1"
 golem-core = "^0.7.3"
-ray-on-golem = {version = "^0.11.0a1", source = "test-pypi"}
+# ray-on-golem = {git = "https://github.com/golemfactory/ray-on-golem.git", branch = "approxit/cluster-cleanup"}
+ray-on-golem = {version = "^0.11.0a2", source = "test-pypi"}
 fastapi = "^0.111.0"
 
 [tool.poetry.group.dev.dependencies]

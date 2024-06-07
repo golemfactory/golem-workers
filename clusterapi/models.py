@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import List, Optional
 
 from golem.payload import Payload
@@ -60,3 +61,19 @@ class GetCommandsBody(BaseModel):
 
 class GetProposalsBody(BaseModel):
     node_config: NodeConfig = Field(default_factory=NodeConfig)
+
+
+class ClusterParametersData(BaseModel):
+    webserver_port: int
+    ray_gcs_expose_port: Optional[int]
+    enable_registry_stats: bool
+    payment_network: str
+    payment_driver: str
+    total_budget: float
+    node_config: NodeConfigData
+    ssh_private_key: Path
+    ssh_user: str
+    webserver_datadir: Optional[str] = None
+
+    class Config:
+        extra = "forbid"
