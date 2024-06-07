@@ -179,7 +179,7 @@ async def create_nodes(body: CreateNodesBody):
                 ),
                 ProposalBuffer(
                     min_size=0,
-                    max_size=4,
+                    max_size=2,
                     fill_concurrency_size=2,
                 ),
             ),
