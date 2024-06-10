@@ -13,3 +13,13 @@ TO run test script
 ```bash
 python tests/happy_path.py 
 ```
+
+```bash
+curl -X 'POST' \
+  'http://127.0.0.1:8000/get-cluster' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "cluster_id": "happyPath"
+}'
+```
