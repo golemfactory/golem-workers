@@ -1,10 +1,10 @@
 [tool.poetry]
-name = "cluster-api"
+name = "golem-cluster-api"
 version = "0.1.0"
 description = "TODO"
 authors = ["Golem Factory <contact@golem.network>"]
 readme = "README.md"
-packages = [{ include = "clusterapi" }]
+packages = [{ include = "golem_cluster_api" }]
 
 [[tool.poetry.source]]
 name = "test-pypi"
@@ -13,10 +13,13 @@ priority = "explicit"
 
 [tool.poetry.dependencies]
 python = "^3.8.1"
-golem-core = "^0.7.3"
+golem-core = {path = "../golem-core-python", develop = true}
+#golem-core = "^0.7.3"
 # ray-on-golem = {git = "https://github.com/golemfactory/ray-on-golem.git", branch = "approxit/cluster-cleanup"}
-ray-on-golem = {version = "^0.11.0a2", source = "test-pypi"}
+#ray-on-golem = {path = "../golem-ray", develop = true}
+#ray-on-golem = {version = "^0.11.0a2", source = "test-pypi"}
 fastapi = "^0.111.0"
+pydantic-settings = "^2.3.1"
 
 [tool.poetry.group.dev.dependencies]
 autoflake = "^1"
@@ -24,6 +27,7 @@ black = "^23.7.0"
 isort = "^5"
 
 poethepoet = "^0.8"
+pydevd-pycharm = ">=231.8109.197,<231.8110.0"
 
 [tool.poe.tasks]
 format = {sequence = ["_format_autoflake", "_format_isort", "_format_black"], help = "Run code auto formatting"}
