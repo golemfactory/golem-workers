@@ -84,7 +84,7 @@ class Node:
                 await command_func(
                     ClusterAPIWorkContext(
                         activity=self._activity,
-                        extras=dict(NETWORK=self._network, IP=self._node_ip),
+                        extras=dict(network=self._network, ip=self._node_ip),
                     ),
                 )
             # TODO MVP: exe_script commands
