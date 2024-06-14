@@ -24,7 +24,7 @@ dpath = "^2.1.6"
 
 [tool.poetry.group.dev.dependencies]
 autoflake = "^1"
-black = "^23.7.0"
+black = {extras = ["jupyter"], version = "^24.4.2"}
 isort = "^5"
 
 poethepoet = "^0.8"

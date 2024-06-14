@@ -1,33 +1,35 @@
 import asyncio
 import logging.config
-from contextlib import asynccontextmanager, AsyncExitStack
+from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import timedelta
-from fastapi import FastAPI, HTTPException, status, Request
-from typing import Dict, List
+from typing import Dict, List, Optional
 
-from golem.managers import (
-    PaymentManager, NegotiatingPlugin, PaymentPlatformNegotiator,
-)
+from fastapi import FastAPI, HTTPException, Request, status
+from golem.managers import NegotiatingPlugin, PaymentManager, PaymentPlatformNegotiator
 from golem.node import GolemNode
-from golem.resources import Demand, Proposal
+from golem.resources import Agreement, Demand, Proposal
 from golem.utils.logging import DEFAULT_LOGGING
+
 from golem_cluster_api.cluster.cluster import Cluster
-from golem_cluster_api.golem import (
-    DriverListAllocationPaymentManager, NodeConfigNegotiator,
-)
+from golem_cluster_api.golem import DriverListAllocationPaymentManager, NodeConfigNegotiator
 from golem_cluster_api.models import (
-    CreateClusterRequest,
-    CreateNodeRequest,
-    DeleteClusterRequest,
-    GetClusterRequest,
-    GetNodeRequest,
-    GetProposalsRequest,
-    CreateClusterResponse,
-    GetClusterResponse,
-    DeleteClusterResponse,
-    GetProposalsResponse,
     ClusterOut,
-    ProposalOut, CreateNodeResponse, NodeOut, DeleteNodeRequest, DeleteNodeResponse, GetNodeResponse,
+    CreateClusterRequest,
+    CreateClusterResponse,
+    CreateNodeRequest,
+    CreateNodeResponse,
+    DeleteClusterRequest,
+    DeleteClusterResponse,
+    DeleteNodeRequest,
+    DeleteNodeResponse,
+    GetClusterRequest,
+    GetClusterResponse,
+    GetNodeRequest,
+    GetNodeResponse,
+    GetProposalsRequest,
+    GetProposalsResponse,
+    NodeOut,
+    ProposalOut,
 )
 from golem_cluster_api.settings import Settings
 from golem_cluster_api.utils import collect_initial_proposals
@@ -51,7 +53,6 @@ async def lifespan(app: FastAPI):
     # TODO POC: Move to cluster
     payment_manager: PaymentManager = DriverListAllocationPaymentManager(
         golem_node,
-
         # TODO POC: Use user config instead
         budget=10,
         network="holesky",
@@ -78,7 +79,9 @@ app = FastAPI(lifespan=lifespan)
 
 
 @app.post("/get-proposals")
-async def get_proposals(request_data: GetProposalsRequest, request: Request) -> GetProposalsResponse:
+async def get_proposals(
+    request_data: GetProposalsRequest, request: Request
+) -> GetProposalsResponse:
     """Read proposals from Yagna marketplace based on given `payload_config`"""
 
     golem_node = request.app.state.golem_node
@@ -87,10 +90,12 @@ async def get_proposals(request_data: GetProposalsRequest, request: Request) -> 
     allocation = await payment_manager.get_allocation()
     demand_builder = await request_data.market_config.demand.create_demand_builder(allocation)
     demand = await demand_builder.create_demand(golem_node)
-    demands.append(demand)  # TODO MVP: Unsubscribe demand after 5 minutes instead of end of the lifetime
+    # TODO MVP: Unsubscribe demand after 5 minutes instead of end of the lifetime
+    demands.append(demand)
 
-    initial_proposals_data = await collect_initial_proposals(demand, timeout=timedelta(
-        seconds=request_data.collection_time_seconds))
+    initial_proposals_data = await collect_initial_proposals(
+        demand, timeout=timedelta(seconds=request_data.collection_time_seconds)
+    )
 
     return GetProposalsResponse(
         proposals=[
@@ -100,25 +105,34 @@ async def get_proposals(request_data: GetProposalsRequest, request: Request) -> 
                 state=proposal_data.state,
                 timestamp=proposal_data.timestamp,
                 properties=proposal_data.properties,
-            ) for proposal_data in initial_proposals_data
+            )
+            for proposal_data in initial_proposals_data
         ],
     )
 
 
 @app.post("/create-cluster")
-async def create_cluster(request_data: CreateClusterRequest) -> CreateClusterResponse:
+async def create_cluster(
+    request_data: CreateClusterRequest, request: Request
+) -> CreateClusterResponse:
     """Create cluster. Save given cluster configuration."""
 
     async with clusters_lock:
         if request_data.cluster_id in clusters:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Cluster with id `{request_data.cluster_id}` already exists!"
+                detail=f"Cluster with id `{request_data.cluster_id}` already exists!",
             )
+
+        network = await request.app.state.golem_node.create_network(
+            "192.168.0.1/16"
+        )  # TODO MVP: allow for unique network for each cluster
+        await request.app.state.golem_node.add_to_network(network)
 
         # TODO: Use ClusterRepository for creation scheduling
         clusters[request_data.cluster_id] = cluster = Cluster(
             cluster_id=request_data.cluster_id,
+            network=network,
             payment_config=request_data.payment_config,
             node_types=request_data.node_types,
         )
@@ -156,7 +170,7 @@ async def delete_cluster(request_data: DeleteClusterRequest) -> DeleteClusterRes
         if not cluster:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Cluster with id `{request_data.cluster_id}` does not exists!"
+                detail=f"Cluster with id `{request_data.cluster_id}` does not exists!",
             )
 
         # TODO: use schedule stop and remove instead of inline waiting
@@ -173,12 +187,12 @@ async def delete_cluster(request_data: DeleteClusterRequest) -> DeleteClusterRes
 @app.post("/create-node")
 async def create_node(request_data: CreateNodeRequest, request: Request) -> CreateNodeResponse:
     """Create node. Apply logic from cluster configuration."""
-    cluster = clusters.get(request_data.cluster_id)
+    cluster: Optional[Cluster] = clusters.get(request_data.cluster_id)
 
     if not cluster:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Cluster with id `{request_data.cluster_id}` does not exists!"
+            detail=f"Cluster with id `{request_data.cluster_id}` does not exists!",
         )
 
     # TODO MVP: Handle not existing proposal id
@@ -198,13 +212,18 @@ async def create_node(request_data: CreateNodeRequest, request: Request) -> Crea
     draft_proposal = await negotiating_plugin._negotiate_proposal(demand_data, initial_proposal)
 
     # TODO POC: close agreements
-    agreement = await draft_proposal.create_agreement()
+    agreement: Agreement = await draft_proposal.create_agreement()
     await agreement.confirm()
     await agreement.wait_for_approval()
+    node_ip = await cluster.network.create_node(await agreement.proposal.get_provider_id())
     activity = await agreement.create_activity()
 
     # TODO: Use ClusterRepository for creation scheduling
-    node = cluster.create_node(activity)
+    node = cluster.create_node(
+        activity,
+        node_ip,
+        on_start=node_config.on_start_commands,
+    )
 
     return CreateNodeResponse(
         node=NodeOut.from_node(node),
@@ -219,7 +238,7 @@ async def get_node(request_data: GetNodeRequest) -> GetNodeResponse:
     if not cluster:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Cluster with id `{request_data.cluster_id}` does not exists!"
+            detail=f"Cluster with id `{request_data.cluster_id}` does not exists!",
         )
 
     node = cluster.nodes.get(request_data.node_id)
@@ -227,7 +246,7 @@ async def get_node(request_data: GetNodeRequest) -> GetNodeResponse:
     if not node:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Node with id `{request_data.node_id}` does not exists in cluster!"
+            detail=f"Node with id `{request_data.node_id}` does not exists in cluster!",
         )
 
     return GetNodeResponse(
@@ -242,7 +261,7 @@ async def delete_node(request_data: DeleteNodeRequest) -> DeleteNodeResponse:
     if not cluster:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Cluster with id `{request_data.cluster_id}` does not exists!"
+            detail=f"Cluster with id `{request_data.cluster_id}` does not exists!",
         )
 
     node = cluster.nodes.get(request_data.node_id)
@@ -250,7 +269,7 @@ async def delete_node(request_data: DeleteNodeRequest) -> DeleteNodeResponse:
     if not node:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Node with id `{request_data.node_id}` does not exists in cluster!"
+            detail=f"Node with id `{request_data.node_id}` does not exists in cluster!",
         )
 
     # TODO: Use ClusterRepository for deletion scheduling

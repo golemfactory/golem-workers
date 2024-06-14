@@ -1,30 +1,33 @@
-import aiohttp
 import base64
 import json
 import logging
-from dataclasses import dataclass, field, asdict
-from pydantic import AnyUrl
-from typing import Dict, List
-from typing import Tuple, Optional
-from yarl import URL
+from dataclasses import asdict, dataclass, field
+from typing import Dict, List, Optional, Tuple
 
+import aiohttp
 from golem.payload import (
+    Constraints,
     ManifestVmPayload,
+    NodeInfo,
     Payload,
+    Properties,
     RepositoryVmPayload,
     constraint,
     defaults,
-    Properties,
-    Constraints,
-    NodeInfo,
 )
+from pydantic import AnyUrl
+from yarl import URL
+
 from golem_cluster_api.exceptions import ClusterApiError, RegistryRequestError
 
 logger = logging.getLogger(__name__)
 
 
 def get_manifest(
-    image_url: Optional[URL], image_hash: Optional[str], protocols: List[str], outbound_urls: List[str]
+    image_url: Optional[URL],
+    image_hash: Optional[str],
+    protocols: List[str],
+    outbound_urls: List[str],
 ) -> Dict:
     manifest = {
         "version": "0.1.0",
@@ -56,10 +59,12 @@ def get_manifest(
     }
 
     if image_url and image_hash:
-        manifest["payload"] = [{
-            "urls": [str(image_url)],
-            "hash": f"sha3:{image_hash}",
-        }]
+        manifest["payload"] = [
+            {
+                "urls": [str(image_url)],
+                "hash": f"sha3:{image_hash}",
+            }
+        ]
 
     logger.debug(f"Manifest generated: {manifest}")
     return manifest
@@ -125,7 +130,15 @@ class ClusterNodePayload(Payload):
         params = {
             k: v
             for k, v in asdict(self).items()
-            if k not in {"image_hash", "image_tag", "outbound_urls", "subnet_tag", "max_cpu_threads", "registry_stats"}
+            if k
+            not in {
+                "image_hash",
+                "image_tag",
+                "outbound_urls",
+                "subnet_tag",
+                "max_cpu_threads",
+                "registry_stats",
+            }
         }
 
         params["image_hash"] = image_hash
@@ -147,7 +160,15 @@ class ClusterNodePayload(Payload):
         params = {
             k: v
             for k, v in asdict(self).items()
-            if k not in {"image_hash", "image_tag", "outbound_urls", "subnet_tag", "max_cpu_threads", "registry_stats"}
+            if k
+            not in {
+                "image_hash",
+                "image_tag",
+                "outbound_urls",
+                "subnet_tag",
+                "max_cpu_threads",
+                "registry_stats",
+            }
         }
 
         params["manifest"] = manifest
@@ -155,9 +176,7 @@ class ClusterNodePayload(Payload):
 
     async def _get_image_url_and_hash(self) -> Tuple[Optional[URL], Optional[str]]:
         if self.image_tag is not None and self.image_hash is not None:
-            raise ClusterApiError(
-                "Either the `image_tag` or `image_hash` is allowed, not both."
-            )
+            raise ClusterApiError("Either the `image_tag` or `image_hash` is allowed, not both.")
 
         if self.image_hash is not None:
             image_url = await self._get_image_url_from_hash(self.image_hash)

@@ -1,20 +1,19 @@
-from _decimal import Decimal
-
 import asyncio
 import json
 import logging
 import os
 from asyncio.subprocess import Process
-from datetime import datetime, timezone
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
-from ya_payment import models
 
+from _decimal import Decimal
 from golem.managers import DefaultPaymentManager
 from golem.managers.base import ProposalNegotiator
-from golem.resources import AllocationException, Allocation, DemandData, ProposalData
+from golem.resources import Allocation, AllocationException, DemandData, ProposalData
 from golem.utils.logging import trace_span
+from ya_payment import models
+
 from golem_cluster_api.exceptions import ClusterApiError
 from golem_cluster_api.models import MarketConfig
 
@@ -78,8 +77,7 @@ async def run_subprocess_output(*args, timeout: Optional[timedelta] = None) -> b
     return stdout
 
 
-class NoMatchingPlatform(AllocationException):
-    ...
+class NoMatchingPlatform(AllocationException): ...
 
 
 class DriverListAllocationPaymentManager(DefaultPaymentManager):

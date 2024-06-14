@@ -2,7 +2,7 @@ import asyncio
 from datetime import timedelta
 from typing import List
 
-from golem.resources import ProposalData, Demand, Proposal
+from golem.resources import Demand, Proposal, ProposalData
 
 
 async def collect_initial_proposals(demand: Demand, timeout: timedelta) -> List[ProposalData]:

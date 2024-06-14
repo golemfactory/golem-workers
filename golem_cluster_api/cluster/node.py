@@ -1,12 +1,13 @@
 import asyncio
+import importlib
 import logging
-from typing import Callable, Optional
+from typing import List, Optional
 
-from golem.resources import Activity
+from golem.resources import Activity, Network
 from golem.utils.asyncio import create_task_with_logging, ensure_cancelled
-from golem.utils.asyncio.tasks import resolve_maybe_awaitable
 from golem.utils.logging import get_trace_id_name
-from golem.utils.typing import MaybeAwaitable
+
+from golem_cluster_api.commands import ClusterAPIWorkContext
 from golem_cluster_api.models import State
 
 logger = logging.getLogger(__name__)
@@ -19,15 +20,18 @@ class Node:
         self,
         node_id: str,
         activity: Activity,
-        on_stop: Optional[Callable[["Node"], MaybeAwaitable[None]]] = None,
+        node_ip: str,
+        network: Network,
+        on_start: List,
     ) -> None:
         self._node_id = node_id
         self._activity = activity
-        self._on_stop = on_stop
+        self._node_ip = node_ip
+        self._network = network
+        self._on_start = on_start
 
         self._state = State.CREATED
         self._start_task: Optional[asyncio.Task] = None
-        self._on_stop: Optional[Callable[["Node"], MaybeAwaitable[None]]] = None
 
     def __str__(self) -> str:
         return self._node_id
@@ -72,7 +76,18 @@ class Node:
 
         self._state = State.STARTING
 
-        # setup commands
+        for command in self._on_start:
+            if "context" in command:
+                context_command = command["context"]
+                module_path, func_name = context_command.rsplit(".", 1)
+                command_func = getattr(importlib.import_module(module_path), func_name)
+                await command_func(
+                    ClusterAPIWorkContext(
+                        activity=self._activity,
+                        extras=dict(NETWORK=self._network, IP=self._node_ip),
+                    ),
+                )
+            # TODO MVP: exe_script commands
 
         self._state = State.STARTED
 
@@ -93,17 +108,19 @@ class Node:
             await ensure_cancelled(self._start_task)
             self._start_task = None
 
+        # TODO POC: stop commands
+
         if self._activity:
             await self._stop_activity(self._activity)
             self._activity = None
 
         self._state = State.STOPPED
 
-        if self._on_stop and call_events:
-            create_task_with_logging(
-                resolve_maybe_awaitable(self._on_stop(self)),
-                trace_id=get_trace_id_name(self, "on-stop"),
-            )
+        # if self._on_stop and call_events:
+        #     create_task_with_logging(
+        #         resolve_maybe_awaitable(self._on_stop(self)),
+        #         trace_id=get_trace_id_name(self, "on-stop"),
+        #     )
 
         logger.info("Stopping `%s` node done", self)
 

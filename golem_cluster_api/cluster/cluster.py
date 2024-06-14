@@ -1,20 +1,14 @@
 import asyncio
 import logging
-from typing import (
-    Callable,
-    Dict,
-    Mapping,
-    Optional,
-    Any,
-)
+from typing import Dict, Mapping, Optional
 
-from golem.resources import Activity
+from golem.resources import Activity, Network
 from golem.utils.asyncio import create_task_with_logging
 from golem.utils.asyncio.tasks import resolve_maybe_awaitable
 from golem.utils.logging import get_trace_id_name
-from golem.utils.typing import MaybeAwaitable
+
 from golem_cluster_api.cluster.node import Node
-from golem_cluster_api.models import PaymentConfig, State, NodeConfig
+from golem_cluster_api.models import NodeConfig, PaymentConfig, State
 
 logger = logging.getLogger(__name__)
 
@@ -25,16 +19,18 @@ class Cluster:
     def __init__(
         self,
         cluster_id: str,
+        network: Network,
         payment_config: Optional[PaymentConfig] = None,
         node_types: Optional[Mapping[str, NodeConfig]] = None,
-        on_stop: Optional[Callable[["Cluster"], MaybeAwaitable[None]]] = None,
     ) -> None:
         super().__init__()
 
         self._cluster_id = cluster_id
+
+        self.network = network
+
         self._payment_config = payment_config or PaymentConfig()
         self._node_types = node_types or {}
-        self._on_stop = on_stop
 
         self._nodes: Dict[str, Node] = {}
         self._nodes_id_counter = 0
@@ -74,7 +70,8 @@ class Cluster:
             logger.info(
                 f"Ignoring start scheduling request, as `%s` is not in created or stopped state but it is in `%s` "
                 f"state",
-                self, self._state
+                self,
+                self._state,
             )
             return
 
@@ -132,12 +129,11 @@ class Cluster:
     def get_node_type_config(self, node_type: str) -> NodeConfig:
         return self._node_types.get(node_type, NodeConfig())
 
-    def create_node(self, activity: Activity) -> Node:
+    def create_node(self, activity: Activity, node_ip, on_start=None, on_stop=None) -> Node:
         node_id = self._get_new_node_id()
 
         self._nodes[node_id] = node = Node(
-            node_id,
-            activity
+            node_id, activity, node_ip, self.network, on_start=on_start
         )
 
         node.schedule_start()
