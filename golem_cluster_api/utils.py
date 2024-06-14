@@ -1,45 +1,8 @@
-import importlib
-
 import asyncio
-
 from datetime import timedelta
 from typing import List
 
-from golem.node import GolemNode
-from golem.payload import defaults as payload_defaults, Payload, Constraints, Properties
-from golem.payload.defaults import DEFAULT_SUBNET
-from golem.resources import ProposalData, Demand, DemandBuilder, Allocation, Proposal
-from golem_cluster_api.models import MarketConfigDemand
-
-
-async def prepare_demand(golem_node: GolemNode, allocation: Allocation, demand_config: MarketConfigDemand) -> Demand:
-    demand_builder = DemandBuilder()
-
-    all_payloads = [
-        payload_defaults.ActivityInfo(
-            lifetime=payload_defaults.DEFAULT_LIFETIME,
-            multi_activity=True
-        ),
-        payload_defaults.PaymentInfo(),
-        await allocation.get_demand_spec(),
-    ]
-
-    for payload_dotted_path, payload_data in demand_config.payloads.items():
-        module_path, class_name = payload_dotted_path.rsplit('.', 1)
-        payload_class = getattr(importlib.import_module(module_path), class_name)
-
-        all_payloads.append(payload_class(**payload_data))
-
-    for demand_spec in all_payloads:
-        await demand_builder.add(demand_spec)
-
-    demand_builder.add_properties(Properties(demand_config.properties))
-
-    demand = await demand_builder.create_demand(golem_node)
-
-    await demand.get_data()
-
-    return demand
+from golem.resources import ProposalData, Demand, Proposal
 
 
 async def collect_initial_proposals(demand: Demand, timeout: timedelta) -> List[ProposalData]:
@@ -54,7 +17,7 @@ async def collect_initial_proposals(demand: Demand, timeout: timedelta) -> List[
     except asyncio.TimeoutError:
         pass
 
-    demand.stop_collecting_events()
+    # demand.stop_collecting_events()
 
     return [await o.get_proposal_data() for o in proposals]
 

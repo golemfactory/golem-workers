@@ -20,6 +20,7 @@ golem-core = {path = "../golem-core-python", develop = true}
 #ray-on-golem = {version = "^0.11.0a2", source = "test-pypi"}
 fastapi = "^0.111.0"
 pydantic-settings = "^2.3.1"
+dpath = "^2.1.6"
 
 [tool.poetry.group.dev.dependencies]
 autoflake = "^1"

@@ -16,7 +16,6 @@ from golem.payload import (
     defaults,
     Properties,
     Constraints,
-    ConstraintGroup,
     NodeInfo,
 )
 from golem_cluster_api.exceptions import ClusterApiError, RegistryRequestError
@@ -25,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_manifest(
-    image_url: URL, image_hash: str, protocols: List[str], outbound_urls: List[str]
+    image_url: Optional[URL], image_hash: Optional[str], protocols: List[str], outbound_urls: List[str]
 ) -> Dict:
     manifest = {
         "version": "0.1.0",
@@ -36,12 +35,7 @@ def get_manifest(
             "description": "Cluster Api",
             "version": "0.0.1",
         },
-        "payload": [
-            {
-                "urls": [str(image_url)],
-                "hash": f"sha3:{image_hash}",
-            }
-        ],
+        "payload": [],
         "compManifest": {
             "version": "0.1.0",
             "script": {
@@ -60,6 +54,13 @@ def get_manifest(
             },
         },
     }
+
+    if image_url and image_hash:
+        manifest["payload"] = [{
+            "urls": [str(image_url)],
+            "hash": f"sha3:{image_hash}",
+        }]
+
     logger.debug(f"Manifest generated: {manifest}")
     return manifest
 
@@ -75,9 +76,9 @@ class ClusterNodePayload(Payload):
     image_tag: Optional[str] = None
     capabilities: List[str] = field(default_factory=lambda: ["vpn", "inet"])
     outbound_urls: List[AnyUrl] = field(default_factory=list)
-    min_mem_gib: Optional[float] = 0.0
-    min_cpu_threads: Optional[int] = 0
-    min_storage_gib: Optional[float] = 0.0
+    min_mem_gib: Optional[float] = None
+    min_cpu_threads: Optional[int] = None
+    min_storage_gib: Optional[float] = None
     max_cpu_threads: Optional[int] = None
     runtime: str = "vm"
     registry_stats: bool = True
@@ -119,7 +120,7 @@ class ClusterNodePayload(Payload):
         ]
 
     async def _get_repository_payload(
-        self, image_url: URL, image_hash: str
+        self, image_url: Optional[URL], image_hash: Optional[str]
     ) -> Payload:
         params = {
             k: v
@@ -132,7 +133,7 @@ class ClusterNodePayload(Payload):
         return RepositoryVmPayload(**params)
 
     async def _get_manifest_payload(
-        self, image_url: URL, image_hash: str
+        self, image_url: Optional[URL], image_hash: Optional[str]
     ) -> Payload:
         manifest = get_manifest(
             image_url,
@@ -152,14 +153,11 @@ class ClusterNodePayload(Payload):
         params["manifest"] = manifest
         return ManifestVmPayload(**params)
 
-    async def _get_image_url_and_hash(self) -> Tuple[URL, str]:
+    async def _get_image_url_and_hash(self) -> Tuple[Optional[URL], Optional[str]]:
         if self.image_tag is not None and self.image_hash is not None:
             raise ClusterApiError(
                 "Either the `image_tag` or `image_hash` is allowed, not both."
             )
-
-        if self.image_tag is None and self.image_hash is None:
-            raise ClusterApiError("Either the `image_tag` or `image_hash` is required.")
 
         if self.image_hash is not None:
             image_url = await self._get_image_url_from_hash(self.image_hash)
@@ -167,6 +165,8 @@ class ClusterNodePayload(Payload):
 
         if self.image_tag is not None:
             return await self._get_image_url_and_hash_from_tag(self.image_tag)
+
+        return None, None
 
     async def _get_image_url_from_hash(self, image_hash: str) -> URL:
         async with aiohttp.ClientSession() as session:
