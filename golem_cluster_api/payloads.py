@@ -190,7 +190,7 @@ class ClusterNodePayload(Payload):
     async def _get_image_url_from_hash(self, image_hash: str) -> URL:
         async with aiohttp.ClientSession() as session:
             async with session.get(
-                f"https://registry.golem.network/v1/image/info",
+                "https://registry.golem.network/v1/image/info",
                 params={"hash": image_hash, "count": str(self.registry_stats).lower()},
             ) as response:
                 response_data = await response.json()
@@ -205,7 +205,7 @@ class ClusterNodePayload(Payload):
     async def _get_image_url_and_hash_from_tag(self, image_tag: str) -> Tuple[URL, str]:
         async with aiohttp.ClientSession() as session:
             async with session.get(
-                f"https://registry.golem.network/v1/image/info",
+                "https://registry.golem.network/v1/image/info",
                 params={"tag": image_tag, "count": str(self.registry_stats).lower()},
             ) as response:
                 response_data = await response.json()

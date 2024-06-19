@@ -4,3 +4,4 @@ __pycache__/
 .env
 poetry.lock
 .idea
+dist

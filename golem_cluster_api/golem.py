@@ -10,12 +10,11 @@ from typing import Optional
 from _decimal import Decimal
 from golem.managers import DefaultPaymentManager
 from golem.managers.base import ProposalNegotiator
-from golem.resources import Allocation, AllocationException, DemandData, ProposalData
+from golem.resources import Allocation, AllocationException, DemandData, ProposalData, DemandBuilder
 from golem.utils.logging import trace_span
 from ya_payment import models
 
 from golem_cluster_api.exceptions import ClusterApiError
-from golem_cluster_api.models import MarketConfig
 
 YAGNA_PATH = Path(os.getenv("YAGNA_PATH", "yagna"))
 
@@ -23,15 +22,14 @@ logger = logging.getLogger(__name__)
 
 
 class NodeConfigNegotiator(ProposalNegotiator):
-    def __init__(self, market_config: MarketConfig) -> None:
-        self._market_config = market_config
+    def __init__(self, demand_builder: DemandBuilder) -> None:
+        self._demand_builder = demand_builder
 
     async def __call__(self, demand_data: DemandData, proposal_data: ProposalData) -> None:
-        demand_data.properties.update(self._market_config.demand.properties)
+        demand_data.properties.update(self._demand_builder.properties)
 
-        # for config_constraints in self._config_constraints:
-        #     if config_constraints not in demand_data.constraints.items:
-        #         demand_data.constraints.items.append(config_constraints)
+        if self._demand_builder.constraints not in demand_data.constraints.items:
+            demand_data.constraints.items.append(self._demand_builder.constraints)
 
 
 async def run_subprocess(

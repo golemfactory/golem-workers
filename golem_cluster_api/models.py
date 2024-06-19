@@ -2,14 +2,16 @@ import importlib
 from copy import deepcopy
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, List, Literal, Mapping, Optional, Union
+from typing import TYPE_CHECKING, Any, List, Mapping, Optional, Union
 
 import dpath
+from typing_extensions import Annotated
+
 from golem.payload import PayloadSyntaxParser, Properties
 from golem.payload import defaults as payload_defaults
 from golem.resources import Allocation, DemandBuilder, ProposalId
 from golem.resources.proposal.data import ProposalState
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, WithJsonSchema
 
 if TYPE_CHECKING:
     from golem_cluster_api.cluster.cluster import Cluster
@@ -60,11 +62,11 @@ class MarketConfigDemand(BaseModel):
         for demand_spec in all_payloads:
             await demand_builder.add(demand_spec)
 
-        # TODO MVP: move Properties creation to object parsing
+        # TODO MVP: move Properties creation to object parsing?
         demand_builder.add_properties(Properties(self.properties))
 
         if self.constraints:
-            # TODO MVP: move Constraints creation to object parsing
+            # TODO MVP: move Constraints creation to object parsing?
             constraints = PayloadSyntaxParser.get_instance().parse_constraints(
                 "(& {})".format(
                     " ".join(c if c.startswith("(") else f"({c})" for c in self.constraints)
@@ -87,7 +89,9 @@ class ExposePortEntryDirection(Enum):
     PROVIDER_TO_REQUESTOR = "provider-to-requestor"
 
 
-class ExposePortEntry(BaseModel):
+class ExposePortEntry(
+    BaseModel
+):  # TODO: To be used when yagna would have built-in two-directional proxy funcionality
     model_config = ConfigDict(extra="forbid")
 
     requestor_port: int
@@ -95,19 +99,28 @@ class ExposePortEntry(BaseModel):
     direction: ExposePortEntryDirection
 
 
-ContextCommand = Mapping[Literal["context"], str]
-ExeScriptCommand = Mapping[Literal["exe_script"], Mapping[str, str]]
-Commands = List[Union[ContextCommand, ExeScriptCommand]]
+class WorkCommand(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    work: str
+
+
+class ExeScriptCommand(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    exe_script: List[Mapping[str, Any]]
+
+
+Command = Union[WorkCommand, ExeScriptCommand]
 
 
 class NodeConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     market_config: MarketConfig = Field(default_factory=MarketConfig)
-    expose_ports: List[ExposePortEntry] = Field(default_factory=list)
     sidecars: Mapping[str, Mapping[str, Any]] = Field(default_factory=dict)
-    on_start_commands: Commands = Field(default_factory=list)
-    on_stop_commands: Commands = Field(default_factory=list)
+    on_start_commands: List[Command] = Field(default_factory=list)
+    on_stop_commands: List[Command] = Field(default_factory=list)
 
     def combine(self, other: "NodeConfig") -> "NodeConfig":
         result = deepcopy(self.dict())
@@ -144,12 +157,14 @@ class ClusterOut(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     cluster_id: str
+    state: State
     nodes: Mapping[str, NodeOut]
 
     @classmethod
     def from_cluster(cls, cluster: "Cluster") -> "ClusterOut":
         return cls(
             cluster_id=cluster.cluster_id,
+            state=cluster.state,
             nodes={node_id: NodeOut.from_node(node) for node_id, node in cluster.nodes.items()},
         )
 
@@ -161,7 +176,15 @@ class ProposalOut(BaseModel):
     issuer_id: Optional[str]
     state: ProposalState
     timestamp: datetime
-    # properties: Properties  # TODO POC: fix for /docs
+    properties: Annotated[
+        Properties,
+        WithJsonSchema(
+            {
+                "type": "object",
+            },
+            mode="serialization",
+        ),
+    ]
 
 
 class GetProposalsRequest(RequestBaseModel):

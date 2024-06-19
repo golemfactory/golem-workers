@@ -6,6 +6,10 @@ authors = ["Golem Factory <contact@golem.network>"]
 readme = "README.md"
 packages = [{ include = "golem_cluster_api" }]
 
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
 [[tool.poetry.source]]
 name = "test-pypi"
 url = "https://test.pypi.org/simple/"
@@ -13,45 +17,39 @@ priority = "explicit"
 
 [tool.poetry.dependencies]
 python = "^3.8.1"
-golem-core = {path = "../golem-core-python", develop = true}
+
+#golem-core = {path = "../golem-core-python", develop = true}
+golem-core = {git = "https://github.com/golemfactory/golem-core-python.git", branch = "approxit/cluster-api"}
 #golem-core = "^0.7.3"
-# ray-on-golem = {git = "https://github.com/golemfactory/ray-on-golem.git", branch = "approxit/cluster-cleanup"}
-#ray-on-golem = {path = "../golem-ray", develop = true}
-#ray-on-golem = {version = "^0.11.0a2", source = "test-pypi"}
+golem-node = "^0.15.0"
+
 fastapi = "^0.111.0"
 pydantic-settings = "^2.3.1"
 dpath = "^2.1.6"
 
 [tool.poetry.group.dev.dependencies]
-autoflake = "^1"
-black = {extras = ["jupyter"], version = "^24.4.2"}
-isort = "^5"
-
 poethepoet = "^0.8"
+ruff = "^0.4.8"
 pydevd-pycharm = ">=231.8109.197,<231.8110.0"
 
 [tool.poe.tasks]
-format = {sequence = ["_format_autoflake", "_format_isort", "_format_black"], help = "Run code auto formatting"}
-_format_autoflake = "autoflake ."
-_format_isort = "isort ."
-_format_black = "black ."
+checks = {sequence = ["checks_codestyle", "checks_license"], help = "Run all available code checks"}
+checks_codestyle = {sequence = ["_checks_lint", "_checks_format"], help = "Run only code style checks"}
+_checks_lint  = {cmd = "ruff check", help = "Run only code linting checks" }
+_checks_format  = {cmd = "ruff format --check", help = "Run only code format checks" }
+checks_license = {sequence = ["_checks_license_export", "_checks_license_verify"], help = "Run only license compatibility checks"}
+_checks_license_export = "poetry export -f requirements.txt -o .requirements.txt"
+_checks_license_verify = "liccheck -r .requirements.txt"
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+format = {sequence = ["_format_lint", "_format_format"], help = "Run code auto formatting"}
+_format_lint = "ruff check --fix"
+_format_format = "ruff format"
 
-[tool.isort]
-profile = "black"
-py_version = 38
-line_length = 100
-skip_gitignore = true
-
-[tool.autoflake]
-recursive = true
-in-place = true
-remove-all-unused-imports = true
-ignore-init-module-imports = true
-
-[tool.black]
+[tool.ruff]
 line-length = 100
-target-version = ['py38']
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"

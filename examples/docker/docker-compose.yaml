@@ -1,0 +1,30 @@
+name: cluster-api-example
+
+services:
+  golem-node:
+    build:
+      context: ../../ # Repository root
+      dockerfile: ./examples/docker/Dockerfile
+      target: development
+    environment:
+      YAGNA_AUTOCONF_APPKEY: development-only-appkey
+      YAGNA_API_URL: http://0.0.0.0:7465
+      GSB_URL: tcp://0.0.0.0:7464
+    command: yagna service run
+    volumes:
+      - yagna-data:/root/.local/share/yagna
+
+  web:
+    build:
+      context: ../../ # Repository root
+      dockerfile: ./examples/docker/Dockerfile
+      target: development
+    environment:
+      YAGNA_APPKEY: development-only-appkey
+      YAGNA_API_URL: http://golem-node:7465
+      GSB_URL: tcp://golem-node:7464
+    ports:
+      - "8000:8000"
+
+volumes:
+  yagna-data:

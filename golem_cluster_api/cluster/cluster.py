@@ -1,14 +1,13 @@
 import asyncio
 import logging
-from typing import Dict, Mapping, Optional
+from typing import Dict, Mapping, Optional, List
 
 from golem.resources import Activity, Network
 from golem.utils.asyncio import create_task_with_logging
-from golem.utils.asyncio.tasks import resolve_maybe_awaitable
 from golem.utils.logging import get_trace_id_name
 
 from golem_cluster_api.cluster.node import Node
-from golem_cluster_api.models import NodeConfig, PaymentConfig, State
+from golem_cluster_api.models import NodeConfig, PaymentConfig, State, Command
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +25,6 @@ class Cluster:
         super().__init__()
 
         self._cluster_id = cluster_id
-
         self.network = network
 
         self._payment_config = payment_config or PaymentConfig()
@@ -68,8 +66,8 @@ class Cluster:
             self._state not in (State.CREATED, State.STOPPED)
         ):
             logger.info(
-                f"Ignoring start scheduling request, as `%s` is not in created or stopped state but it is in `%s` "
-                f"state",
+                "Ignoring start scheduling request, as `%s` is not in created or stopped state but it is in `%s` "
+                "state",
                 self,
                 self._state,
             )
@@ -93,7 +91,7 @@ class Cluster:
 
         logger.info("Starting `%s` cluster done", self)
 
-    async def stop(self, call_events: bool = True) -> None:
+    async def stop(self) -> None:
         """Stop the cluster."""
 
         if self._state is not State.STARTED:
@@ -104,17 +102,11 @@ class Cluster:
 
         self._state = State.STOPPING
 
-        await asyncio.gather(*[node.stop(call_events=False) for node in self._nodes.values()])
+        await asyncio.gather(*[node.stop() for node in self._nodes.values()])
 
         self._state = State.STOPPED
         self._nodes.clear()
         self._nodes_id_counter = 0
-
-        if self._on_stop and call_events:
-            create_task_with_logging(
-                resolve_maybe_awaitable(self._on_stop(self)),
-                trace_id=get_trace_id_name(self, "on-stop"),
-            )
 
         logger.info("Stopping `%s` cluster done", self)
 
@@ -129,11 +121,22 @@ class Cluster:
     def get_node_type_config(self, node_type: str) -> NodeConfig:
         return self._node_types.get(node_type, NodeConfig())
 
-    def create_node(self, activity: Activity, node_ip, on_start=None, on_stop=None) -> Node:
+    def create_node(
+        self,
+        activity: Activity,
+        node_ip,
+        on_start_commands: List[Command] = None,
+        on_stop_commands: List[Command] = None,
+    ) -> Node:
         node_id = self._get_new_node_id()
 
         self._nodes[node_id] = node = Node(
-            node_id, activity, node_ip, self.network, on_start=on_start
+            node_id,
+            activity,
+            node_ip,
+            self.network,
+            on_start_commands=on_start_commands,
+            on_stop_commands=on_stop_commands,
         )
 
         node.schedule_start()

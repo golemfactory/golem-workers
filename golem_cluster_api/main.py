@@ -198,12 +198,19 @@ async def create_node(request_data: CreateNodeRequest, request: Request) -> Crea
     # TODO MVP: Handle not existing proposal id
     initial_proposal = Proposal(request.app.state.golem_node, request_data.proposal_id)
 
+    # TODO MVP: validate initially optional, but required for activity creation (for e.g. image url)
     node_config = cluster.get_node_type_config(request_data.node_type)
     node_config = node_config.combine(request_data.node_config)
 
+    payment_manager = request.app.state.payment_manager
+    allocation = await payment_manager.get_allocation()
+    demand_builder = await request_data.node_config.market_config.demand.create_demand_builder(
+        allocation
+    )
+
     negotiating_plugin = NegotiatingPlugin(
         proposal_negotiators=(
-            NodeConfigNegotiator(node_config.market_config),
+            NodeConfigNegotiator(demand_builder),
             PaymentPlatformNegotiator(),
         ),
     )
@@ -211,7 +218,6 @@ async def create_node(request_data: CreateNodeRequest, request: Request) -> Crea
     demand_data = await initial_proposal.demand.get_demand_data()
     draft_proposal = await negotiating_plugin._negotiate_proposal(demand_data, initial_proposal)
 
-    # TODO POC: close agreements
     agreement: Agreement = await draft_proposal.create_agreement()
     await agreement.confirm()
     await agreement.wait_for_approval()
@@ -222,7 +228,8 @@ async def create_node(request_data: CreateNodeRequest, request: Request) -> Crea
     node = cluster.create_node(
         activity,
         node_ip,
-        on_start=node_config.on_start_commands,
+        on_start_commands=node_config.on_start_commands,
+        on_stop_commands=node_config.on_stop_commands,
     )
 
     return CreateNodeResponse(
