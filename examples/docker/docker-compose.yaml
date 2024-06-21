@@ -13,6 +13,8 @@ services:
     command: yagna service run
     volumes:
       - yagna-data:/root/.local/share/yagna
+    ports:
+      - "7465:7465"
 
   web:
     build:
@@ -25,6 +27,7 @@ services:
       GSB_URL: tcp://golem-node:7464
     ports:
       - "8000:8000"
+      - "8080:8080"
 
 volumes:
   yagna-data:

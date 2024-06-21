@@ -10,7 +10,7 @@ from golem.node import GolemNode
 from golem.resources import Agreement, Demand, Proposal
 from golem.utils.logging import DEFAULT_LOGGING
 
-from golem_cluster_api.cluster.cluster import Cluster
+from golem_cluster_api.cluster import Cluster
 from golem_cluster_api.golem import DriverListAllocationPaymentManager, NodeConfigNegotiator
 from golem_cluster_api.models import (
     ClusterOut,
@@ -32,7 +32,7 @@ from golem_cluster_api.models import (
     ProposalOut,
 )
 from golem_cluster_api.settings import Settings
-from golem_cluster_api.utils import collect_initial_proposals
+from golem_cluster_api.utils import collect_initial_proposals, import_from_dotted_path
 
 logging.config.dictConfig(DEFAULT_LOGGING)
 
@@ -221,8 +221,13 @@ async def create_node(request_data: CreateNodeRequest, request: Request) -> Crea
     agreement: Agreement = await draft_proposal.create_agreement()
     await agreement.confirm()
     await agreement.wait_for_approval()
-    node_ip = await cluster.network.create_node(await agreement.proposal.get_provider_id())
     activity = await agreement.create_activity()
+    node_ip = await cluster.network.create_node(await agreement.proposal.get_provider_id())
+
+    sidecars = []
+    for sidecar in node_config.sidecars:
+        sidecar_class, sidecar_args, sidecar_kwargs = sidecar.import_object()
+        sidecars.append(sidecar_class(*sidecar_args, **sidecar_kwargs))
 
     # TODO: Use ClusterRepository for creation scheduling
     node = cluster.create_node(
@@ -230,6 +235,7 @@ async def create_node(request_data: CreateNodeRequest, request: Request) -> Crea
         node_ip,
         on_start_commands=node_config.on_start_commands,
         on_stop_commands=node_config.on_stop_commands,
+        sidecars=sidecars,
     )
 
     return CreateNodeResponse(

@@ -7,7 +7,8 @@ from golem.utils.asyncio import create_task_with_logging
 from golem.utils.logging import get_trace_id_name
 
 from golem_cluster_api.cluster.node import Node
-from golem_cluster_api.models import NodeConfig, PaymentConfig, State, Command
+from golem_cluster_api.cluster.sidecars import Sidecar
+from golem_cluster_api.models import NodeConfig, PaymentConfig, State, ImportableCommand
 
 logger = logging.getLogger(__name__)
 
@@ -125,8 +126,9 @@ class Cluster:
         self,
         activity: Activity,
         node_ip,
-        on_start_commands: List[Command] = None,
-        on_stop_commands: List[Command] = None,
+        on_start_commands: List[ImportableCommand],
+        on_stop_commands: List[ImportableCommand],
+        sidecars: List[Sidecar],
     ) -> Node:
         node_id = self._get_new_node_id()
 
@@ -137,6 +139,7 @@ class Cluster:
             self.network,
             on_start_commands=on_start_commands,
             on_stop_commands=on_stop_commands,
+            sidecars=sidecars,
         )
 
         node.schedule_start()

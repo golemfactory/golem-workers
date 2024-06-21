@@ -44,6 +44,7 @@ RUN apt-get update \
     && apt-get install --no-install-recommends -y \
         # deps for installing poetry
         curl \
+    	openssh-client \
         # deps for building python deps
         build-essential
 
@@ -70,6 +71,9 @@ RUN --mount=type=cache,target=/root/.cache \
 FROM python-base as development
 ENV FASTAPI_ENV=development
 WORKDIR $PYSETUP_PATH
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y \
+    	openssh-client
 
 # copy in our built poetry + venv
 COPY --from=builder-base $POETRY_HOME $POETRY_HOME

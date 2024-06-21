@@ -1,17 +1,13 @@
-import json
-
 import asyncio
 import logging
 from typing import List, Optional
-from ya_activity import models
 
-from golem.managers import WorkContext, Work
 from golem.resources import Activity, Network
 from golem.utils.asyncio import create_task_with_logging, ensure_cancelled
 from golem.utils.logging import get_trace_id_name
-
-from golem_cluster_api.models import State, Command, WorkCommand, ExeScriptCommand
-from golem_cluster_api.utils import import_from_dotted_path
+from golem_cluster_api.cluster.sidecars import Sidecar
+from golem_cluster_api.context import WorkContext
+from golem_cluster_api.models import State, ImportableCommand
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +21,9 @@ class Node:
         activity: Activity,
         node_ip: str,
         network: Network,
-        on_start_commands: List[Command],
-        on_stop_commands: List[Command],
+        on_start_commands: List[ImportableCommand],
+        on_stop_commands: List[ImportableCommand],
+        sidecars: List[Sidecar],
     ) -> None:
         self._node_id = node_id
         self._activity = activity
@@ -34,6 +31,7 @@ class Node:
         self._network = network
         self._on_start_commands = on_start_commands
         self._on_stop_commands = on_stop_commands
+        self._sidecars = sidecars
 
         self._state = State.CREATED
         self._start_task: Optional[asyncio.Task] = None
@@ -94,6 +92,9 @@ class Node:
 
             return
 
+        for sidecar in self._sidecars:
+            await sidecar.start(self)
+
         self._state = State.STARTED
 
         logger.info("Starting `%s` node done", self)
@@ -112,6 +113,9 @@ class Node:
         if self._start_task:
             await ensure_cancelled(self._start_task)
             self._start_task = None
+
+        for sidecar in self._sidecars:
+            await sidecar.stop()
 
         for command in self._on_stop_commands:
             await self._run_command(command)
@@ -135,21 +139,17 @@ class Node:
         except Exception:
             logger.debug(f"Cannot destroy activity {activity}", exc_info=True)
 
-    async def _run_command(self, command: Command) -> None:
-        if isinstance(command, WorkCommand):
-            command_func = import_from_dotted_path(command.work, Work)
+    async def _run_command(self, command: ImportableCommand) -> None:
+        command_func, command_args, command_kwargs = command.import_object()
 
-            await command_func(
-                WorkContext(
-                    activity=self._activity,
-                    extra={
-                        "network": self._network,
-                        "ip": self._node_ip,
-                    },
-                ),
-            )
-        elif isinstance(command, ExeScriptCommand):
-            text = json.dumps(command.exe_script)
-            await self._activity.execute(models.ExeScriptRequest(text))
-        else:
-            raise RuntimeError(f"Command `{command}` is not supported!")
+        await command_func(
+            WorkContext(
+                activity=self._activity,
+                extra={
+                    "network": self._network,
+                    "ip": self._node_ip,
+                },
+            ),
+            *command_args,
+            **command_kwargs,
+        )

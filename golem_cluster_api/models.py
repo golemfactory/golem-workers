@@ -1,8 +1,9 @@
-import importlib
+import collections
+
 from copy import deepcopy
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, List, Mapping, Optional, Union
+from typing import TYPE_CHECKING, Any, List, Mapping, Optional, Union, Sequence, Tuple
 
 import dpath
 from typing_extensions import Annotated
@@ -11,7 +12,9 @@ from golem.payload import PayloadSyntaxParser, Properties
 from golem.payload import defaults as payload_defaults
 from golem.resources import Allocation, DemandBuilder, ProposalId
 from golem.resources.proposal.data import ProposalState
-from pydantic import BaseModel, ConfigDict, Field, WithJsonSchema
+from pydantic import BaseModel, ConfigDict, Field, WithJsonSchema, RootModel
+
+from golem_cluster_api.utils import import_from_dotted_path
 
 if TYPE_CHECKING:
     from golem_cluster_api.cluster.cluster import Cluster
@@ -35,10 +38,39 @@ class State(Enum):
     REMOVING = "removing"
 
 
+class ImportableElement(RootModel):
+    root: Union[
+        str,
+        Annotated[Mapping[str, Union[Mapping, Sequence]], Field(min_length=1, max_length=1)]
+    ]
+
+    def import_object(self) -> Tuple[Any, Sequence, Mapping]:
+        if isinstance(self.root, str):
+            path = self.root
+            data = []  # empty positional args
+        else:
+            path = next(iter(self.root))
+            data = self.root[path]
+
+        imported_object = import_from_dotted_path(path)
+
+        if isinstance(data, collections.Sequence):
+            args = data
+            kwargs = {}
+        else:
+            args = []
+            kwargs = data
+
+        return imported_object, args, kwargs
+
+ImportablePayload = ImportableElement
+ImportableSidecar = ImportableElement
+ImportableCommand = ImportableElement
+
 class MarketConfigDemand(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    payloads: Mapping[str, Any] = Field(default_factory=dict)
+    payloads: List[ImportablePayload] = Field(default_factory=list)
     properties: Mapping[str, Any] = Field(default_factory=dict)
     constraints: List[str] = Field(default_factory=list)
 
@@ -53,11 +85,10 @@ class MarketConfigDemand(BaseModel):
             await allocation.get_demand_spec(),
         ]
 
-        for payload_dotted_path, payload_data in self.payloads.items():
-            module_path, class_name = payload_dotted_path.rsplit(".", 1)
-            payload_class = getattr(importlib.import_module(module_path), class_name)
+        for payload in self.payloads:
+            payload_class, payload_args, payload_kwargs = payload.import_object()
 
-            all_payloads.append(payload_class(**payload_data))
+            all_payloads.append(payload_class(*payload_args, **payload_kwargs))
 
         for demand_spec in all_payloads:
             await demand_builder.add(demand_spec)
@@ -99,28 +130,13 @@ class ExposePortEntry(
     direction: ExposePortEntryDirection
 
 
-class WorkCommand(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    work: str
-
-
-class ExeScriptCommand(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    exe_script: List[Mapping[str, Any]]
-
-
-Command = Union[WorkCommand, ExeScriptCommand]
-
-
 class NodeConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     market_config: MarketConfig = Field(default_factory=MarketConfig)
-    sidecars: Mapping[str, Mapping[str, Any]] = Field(default_factory=dict)
-    on_start_commands: List[Command] = Field(default_factory=list)
-    on_stop_commands: List[Command] = Field(default_factory=list)
+    sidecars: List[ImportableSidecar] = Field(default_factory=list)
+    on_start_commands: List[ImportableCommand] = Field(default_factory=list)
+    on_stop_commands: List[ImportableCommand] = Field(default_factory=list)
 
     def combine(self, other: "NodeConfig") -> "NodeConfig":
         result = deepcopy(self.dict())

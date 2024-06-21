@@ -1,20 +1,17 @@
-import asyncio
 import json
 import logging
 import os
-from asyncio.subprocess import Process
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional
 
-from _decimal import Decimal
+from decimal import Decimal
 from golem.managers import DefaultPaymentManager
 from golem.managers.base import ProposalNegotiator
 from golem.resources import Allocation, AllocationException, DemandData, ProposalData, DemandBuilder
 from golem.utils.logging import trace_span
 from ya_payment import models
 
-from golem_cluster_api.exceptions import ClusterApiError
+from golem_cluster_api.utils import run_subprocess_output
 
 YAGNA_PATH = Path(os.getenv("YAGNA_PATH", "yagna"))
 
@@ -30,49 +27,6 @@ class NodeConfigNegotiator(ProposalNegotiator):
 
         if self._demand_builder.constraints not in demand_data.constraints.items:
             demand_data.constraints.items.append(self._demand_builder.constraints)
-
-
-async def run_subprocess(
-    *args,
-    stderr=asyncio.subprocess.DEVNULL,
-    stdout=asyncio.subprocess.DEVNULL,
-    detach=False,
-) -> Process:
-    process = await asyncio.create_subprocess_exec(
-        *args,
-        stderr=stderr,
-        stdout=stdout,
-        start_new_session=detach,
-    )
-
-    return process
-
-
-async def run_subprocess_output(*args, timeout: Optional[timedelta] = None) -> bytes:
-    process = await run_subprocess(
-        *args,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-
-    try:
-        stdout, stderr = await asyncio.wait_for(
-            process.communicate(),
-            timeout.total_seconds() if timeout else None,
-        )
-    except asyncio.TimeoutError as e:
-        if process.returncode is None:
-            process.kill()
-            await process.wait()
-
-        raise ClusterApiError(f"Process could not finish in timeout of {timeout}!") from e
-
-    if process.returncode != 0:
-        raise ClusterApiError(
-            f"Process exited with code `{process.returncode}`!\nstdout:\n{stdout}\nstderr:\n{stderr}"
-        )
-
-    return stdout
 
 
 class NoMatchingPlatform(AllocationException): ...
