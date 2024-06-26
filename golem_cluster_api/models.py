@@ -64,6 +64,7 @@ class ImportableElement(RootModel):
         return imported_object, args, kwargs
 
 ImportablePayload = ImportableElement
+ImportableFilter = ImportableElement
 ImportableSidecar = ImportableElement
 ImportableCommand = ImportableElement
 
@@ -112,7 +113,7 @@ class MarketConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     demand: MarketConfigDemand = Field(default_factory=MarketConfigDemand)
-    budget_control: Mapping[str, Any] = Field(default_factory=dict)
+    filters: List[ImportableFilter] = Field(default_factory=list)
 
 
 class ExposePortEntryDirection(Enum):

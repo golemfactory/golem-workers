@@ -2,7 +2,7 @@ import asyncio
 import logging
 from abc import ABC, abstractmethod
 from asyncio.subprocess import Process
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Sequence
 
 from golem.utils.asyncio import create_task_with_logging, ensure_cancelled
 from golem.utils.logging import get_trace_id_name
@@ -34,8 +34,8 @@ class Sidecar(ABC):
         ...
 
 
-class SshPortTunnelSidecar(Sidecar):
-    """Sidecar that runs ssh tunnel from the related node to local machine.
+class PortTunnelSidecar(Sidecar, ABC):
+    """Sidecar that runs a generic tunnel between the related node and the local machine.
 
     Warning will be generated if tunnel exists prematurely.
     """
@@ -43,18 +43,11 @@ class SshPortTunnelSidecar(Sidecar):
     def __init__(
         self,
         *,
-        ssh_private_key_path: str,
         local_port: int,
         remote_port: Optional[int] = None,
-        reverse: bool = False,
-        **kwargs,
     ) -> None:
-        super().__init__(**kwargs)
-
-        self._ssh_private_key_path = ssh_private_key_path
         self._local_port = local_port
         self._remote_port = remote_port or local_port
-        self._reverse = reverse
 
         self._tunnel_process: Optional[Process] = None
         self._early_exit_task: Optional[asyncio.Task] = None
@@ -74,25 +67,11 @@ class SshPortTunnelSidecar(Sidecar):
 
         logger.info("Starting `%s` node `%s` tunnel...", self._node, self._get_tunel_type())
 
-        ssh_proxy_command = get_ssh_proxy_command(
-            get_connection_uri(self._node._network, self._node._node_ip),
-            self._node._network.node.app_key,
-        )
+        args = self._get_subprocess_args()
+        print(args)
 
         self._tunnel_process = await run_subprocess(
-            "ssh",
-            "-N",
-            "-R" if self._reverse else "-L",
-            f"*:{self._remote_port}:127.0.0.1:{self._local_port}",
-            "-o",
-            "StrictHostKeyChecking=no",
-            "-o",
-            "UserKnownHostsFile=/dev/null",
-            "-o",
-            f"ProxyCommand={ssh_proxy_command}",
-            "-i",
-            self._ssh_private_key_path,
-            f"root@{str(self._node.node_id)}",
+            *args,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -142,6 +121,70 @@ class SshPortTunnelSidecar(Sidecar):
         print(output)
 
     def _get_tunel_type(self) -> str:
+        return ":{}->:{}".format(self._local_port, self._remote_port)
+
+    @abstractmethod
+    def _get_subprocess_args(self) -> Sequence:
+        ...
+
+
+class SshPortTunnelSidecar(PortTunnelSidecar):
+    """Sidecar that runs ssh tunnel from the local machine the related node.
+
+    Warning will be generated if tunnel exists prematurely.
+    """
+
+    def __init__(
+        self,
+        *,
+        ssh_private_key_path: str,
+        reverse: bool = False,
+        **kwargs,
+    ) -> None:
+        super().__init__(**kwargs)
+
+        self._ssh_private_key_path = ssh_private_key_path
+        self._reverse = reverse
+
+    def _get_subprocess_args(self) -> Sequence:
+        ssh_proxy_command = get_ssh_proxy_command(
+            get_connection_uri(self._node._network, self._node._node_ip),
+            self._node._network.node.app_key,
+        )
+
+        return [
+            "ssh",
+            "-N",
+            "-R" if self._reverse else "-L",
+            f"*:{self._remote_port}:127.0.0.1:{self._local_port}",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            "-o",
+            f"ProxyCommand={ssh_proxy_command}",
+            "-i",
+            self._ssh_private_key_path,
+            f"root@{str(self._node.node_id)}",
+        ]
+
+    def _get_tunel_type(self) -> str:
         return ":{}{}:{}".format(
             self._local_port, "<-" if self._reverse else "->", self._remote_port
         )
+
+
+class WebsocatPortTunnelSidecar(PortTunnelSidecar):
+    """Sidecar that runs websocat tunnel from the local machine to the related node.
+
+    Warning will be generated if tunnel exists prematurely.
+    """
+
+    def _get_subprocess_args(self) -> Sequence:
+        return [
+            "websocat",
+            f"tcp-listen:0.0.0.0:{self._local_port}",
+            '{}/{}'.format(get_connection_uri(self._node._network, self._node._node_ip), self._remote_port),
+            f"-H=Authorization:Bearer {self._node._network.node.app_key}",
+            "--binary",
+        ]
