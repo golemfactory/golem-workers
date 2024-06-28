@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "TODO"
 authors = ["Golem Factory <contact@golem.network>"]
 readme = "README.md"
-packages = [{ include = "golem_cluster_api" }]
+packages = [{include = "golem_cluster_api"}]
 
 [build-system]
 requires = ["poetry-core"]

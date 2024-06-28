@@ -47,7 +47,7 @@ async def prepare_and_run_ssh_server(context: WorkContext, ssh_key_path: str) ->
 
     logger.info("Starting `%s` activity ssh server...", context.activity)
 
-    await context.run("service ssh start"),
+    await context.run("service ssh start")
 
     logger.info("Starting `%s` activity ssh server done", context.activity)
 
@@ -62,6 +62,7 @@ async def prepare_and_run_ssh_server(context: WorkContext, ssh_key_path: str) ->
             ssh_private_key_path,
         )
     )
+
 
 async def run_in_shell(context: WorkContext, *commands: Union[str, Sequence[str]]) -> None:
     commands = [context.run(command, shell=True) for command in commands]

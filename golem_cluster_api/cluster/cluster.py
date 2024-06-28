@@ -8,6 +8,7 @@ from golem.utils.logging import get_trace_id_name
 
 from golem_cluster_api.cluster.node import Node
 from golem_cluster_api.cluster.sidecars import Sidecar
+from golem_cluster_api.golem import DriverListAllocationPaymentManager
 from golem_cluster_api.models import NodeConfig, PaymentConfig, State, ImportableCommand
 
 logger = logging.getLogger(__name__)
@@ -34,6 +35,12 @@ class Cluster:
         self._nodes: Dict[str, Node] = {}
         self._nodes_id_counter = 0
         self._start_task: Optional[asyncio.Task] = None
+        self.payment_manager = DriverListAllocationPaymentManager(
+            network.node,
+            budget=5, # FIXME: use config / generic budget control,
+            network=payment_config.network,
+            driver=payment_config.driver,
+        )
 
         self._state: State = State.CREATED
 
@@ -88,6 +95,8 @@ class Cluster:
 
         logger.info("Starting `%s` cluster...", self)
 
+        await self.payment_manager.start()
+
         self._state = State.STARTED
 
         logger.info("Starting `%s` cluster done", self)
@@ -104,6 +113,8 @@ class Cluster:
         self._state = State.STOPPING
 
         await asyncio.gather(*[node.stop() for node in self._nodes.values()])
+
+        await self.payment_manager.stop()
 
         self._state = State.STOPPED
         self._nodes.clear()

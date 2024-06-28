@@ -1,3 +1,5 @@
+from abc import ABC
+
 import collections
 
 from copy import deepcopy
@@ -21,11 +23,11 @@ if TYPE_CHECKING:
     from golem_cluster_api.cluster.node import Node
 
 
-class RequestBaseModel(BaseModel):
+class RequestBaseModel(BaseModel, ABC):
     model_config = ConfigDict(extra="forbid")
 
 
-class ResponseBaseModel(BaseModel):
+class ResponseBaseModel(BaseModel, ABC):
     model_config = ConfigDict(extra="ignore")
 
 
@@ -38,10 +40,39 @@ class State(Enum):
     REMOVING = "removing"
 
 
+# TODO POC: extend https://docs.pydantic.dev/latest/api/types/#pydantic.types.ImportString
 class ImportableElement(RootModel):
     root: Union[
-        str,
-        Annotated[Mapping[str, Union[Mapping, Sequence]], Field(min_length=1, max_length=1)]
+        Annotated[
+            str,
+            Field(
+                description="Importable dotted path to Python object. Shortcut for objects with no arguments or all-default arguments."
+            ),
+        ],
+        Annotated[
+            Mapping[
+                str,
+                Union[
+                    Annotated[
+                        Mapping,
+                        Field(
+                            description="Collection of kwargs to be applied for importable object."
+                        ),
+                    ],
+                    Annotated[
+                        Sequence,
+                        Field(
+                            description="Collection of args to be applied for importable object."
+                        ),
+                    ],
+                ],
+            ],
+            Field(
+                min_length=1,
+                max_length=1,
+                description="Object which the only key is a importable dotted path to Python object.",
+            ),
+        ],
     ]
 
     def import_object(self) -> Tuple[Any, Sequence, Mapping]:
@@ -63,17 +94,30 @@ class ImportableElement(RootModel):
 
         return imported_object, args, kwargs
 
+
 ImportablePayload = ImportableElement
 ImportableFilter = ImportableElement
 ImportableSidecar = ImportableElement
 ImportableCommand = ImportableElement
 
+
 class MarketConfigDemand(BaseModel):
+    """Collection of highly customisable payload objects, properties and constraints to be applied to the demand."""
+
     model_config = ConfigDict(extra="forbid")
 
-    payloads: List[ImportablePayload] = Field(default_factory=list)
-    properties: Mapping[str, Any] = Field(default_factory=dict)
-    constraints: List[str] = Field(default_factory=list)
+    payloads: List[ImportablePayload] = Field(
+        default_factory=list,
+        description="List of importable payloads to be added to the demand exactly in given order.",
+    )
+    properties: Mapping[str, Any] = Field(
+        default_factory=dict,
+        description="Collection of raw properties to be added to the demand on top of payloads.",
+    )
+    constraints: List[str] = Field(
+        default_factory=list,
+        description="List of [raw constraints](https://github.com/golemfactory/golem-architecture/pull/83) to be added to the demand on top of payloads.",
+    )
 
     async def create_demand_builder(self, allocation: Allocation) -> DemandBuilder:
         demand_builder = DemandBuilder()
@@ -113,22 +157,10 @@ class MarketConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     demand: MarketConfigDemand = Field(default_factory=MarketConfigDemand)
-    filters: List[ImportableFilter] = Field(default_factory=list)
-
-
-class ExposePortEntryDirection(Enum):
-    REQUESTOR_TO_PROVIDER = "requestor-to-provider"
-    PROVIDER_TO_REQUESTOR = "provider-to-requestor"
-
-
-class ExposePortEntry(
-    BaseModel
-):  # TODO: To be used when yagna would have built-in two-directional proxy funcionality
-    model_config = ConfigDict(extra="forbid")
-
-    requestor_port: int
-    provider_port: int
-    direction: ExposePortEntryDirection
+    filters: List[ImportableFilter] = Field(
+        default_factory=list,
+        description="List of importable filters to be applied on each found proposal.",
+    )
 
 
 class NodeConfig(BaseModel):
@@ -153,7 +185,6 @@ class PaymentConfig(BaseModel):
     address: Optional[str] = None
     network: str = "holesky"
     driver: str = "erc20"
-    total_budget: float = 5
 
 
 class NodeOut(BaseModel):
@@ -202,67 +233,3 @@ class ProposalOut(BaseModel):
             mode="serialization",
         ),
     ]
-
-
-class GetProposalsRequest(RequestBaseModel):
-    market_config: MarketConfig
-    collection_time_seconds: float = 5
-
-
-class GetProposalsResponse(ResponseBaseModel):
-    proposals: List[ProposalOut]
-
-
-class CreateClusterRequest(RequestBaseModel):
-    cluster_id: str
-    payment_config: Optional[PaymentConfig] = Field(default_factory=PaymentConfig)
-    node_types: Mapping[str, NodeConfig] = Field(default_factory=dict)
-
-
-class CreateClusterResponse(ResponseBaseModel):
-    cluster: ClusterOut
-
-
-class GetClusterRequest(RequestBaseModel):
-    cluster_id: str
-
-
-class GetClusterResponse(ResponseBaseModel):
-    cluster: ClusterOut
-
-
-class DeleteClusterRequest(RequestBaseModel):
-    cluster_id: str
-
-
-class DeleteClusterResponse(ResponseBaseModel):
-    cluster: ClusterOut
-
-
-class CreateNodeRequest(RequestBaseModel):
-    cluster_id: str
-    proposal_id: str
-    node_type: str = "default"  # TODO
-    node_config: NodeConfig = Field(default_factory=NodeConfig)
-
-
-class CreateNodeResponse(ResponseBaseModel):
-    node: NodeOut
-
-
-class GetNodeRequest(BaseModel):
-    cluster_id: str
-    node_id: str
-
-
-class GetNodeResponse(ResponseBaseModel):
-    node: NodeOut
-
-
-class DeleteNodeRequest(BaseModel):
-    cluster_id: str
-    node_id: str
-
-
-class DeleteNodeResponse(ResponseBaseModel):
-    node: NodeOut

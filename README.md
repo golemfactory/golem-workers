@@ -14,7 +14,7 @@ To install those tools you can use [pipx](https://pipx.pypa.io/stable/):
 pipx install poetry poethepoet
 ```
 
-or just [pip]():
+or just [pip](https://pip.pypa.io/en/stable/):
 ```shell
 pip install poetry poethepoet
 ```
@@ -53,7 +53,8 @@ Below are two of the simplest ways to start it.
    cd examples/docker
    ```
 
-3. Build and start compose project in the background
+3. Build and start compose project in the background.
+   Note that because of decentralized fashion, `golem-node` needs a moment to gather information from the Golem Network and amount of returned proposals can be impacted.
    ```shell
    docker compose up -d --build
    ```
@@ -67,7 +68,8 @@ Below are two of the simplest ways to start it.
 
 #### Development
 
-1. Start `golem-node` instance in dedicated terminal session
+1. Start `golem-node` instance in dedicated terminal session.
+   Note that because of decentralized fashion, `golem-node` needs a moment to gather information from the Golem Network and amount of returned proposals can be impacted.
    ```shell
    yagna service start
    ```
@@ -83,10 +85,9 @@ Below are two of the simplest ways to start it.
    ```shell
    yagna app-key create <your-token-name>
    ```
-   and put it in `.env` file at the root of the repo
+   and create `.env` file at the root of the repo and put there
    ```dotenv
    YAGNA_APPKEY=<your-application-token>
-   GOLEM_REGISTRY_STATS=false
    ```
 
 3. Start cluster-api instance

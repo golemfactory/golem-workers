@@ -85,7 +85,7 @@ class Node:
         except Exception:
             logger.exception("Starting failed!")
             self._state = State.STOPPED
-            # TODO: handle stop / state cleanup. State cleanup should be in stages to acomodate different stages
+            # TODO: handle stop / state cleanup. State cleanup should be in stages to accommodate different stages
 
             await self._stop_activity(self._activity)
             await self._activity.agreement.terminate()
@@ -102,7 +102,7 @@ class Node:
     async def stop(self) -> None:
         """Stop the node and cleanup its internal state."""
 
-        if self._state is not State.STARTED:
+        if self._state not in (State.STARTING, State.STARTED):
             logger.info("Not stopping `%s` node, as it's already stopped", self)
             return
 

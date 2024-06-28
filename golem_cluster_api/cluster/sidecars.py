@@ -68,7 +68,6 @@ class PortTunnelSidecar(Sidecar, ABC):
         logger.info("Starting `%s` node `%s` tunnel...", self._node, self._get_tunel_type())
 
         args = self._get_subprocess_args()
-        print(args)
 
         self._tunnel_process = await run_subprocess(
             *args,
@@ -111,21 +110,19 @@ class PortTunnelSidecar(Sidecar, ABC):
         return self._tunnel_process and self._tunnel_process.returncode is None
 
     async def _on_tunnel_early_exit(self) -> None:
-        output = await self._tunnel_process.communicate()
+        await self._tunnel_process.communicate()
 
         logger.warning(
             "`%s` node %s exited prematurely!",
             self._node,
             self._get_tunel_type(),
         )
-        print(output)
 
     def _get_tunel_type(self) -> str:
         return ":{}->:{}".format(self._local_port, self._remote_port)
 
     @abstractmethod
-    def _get_subprocess_args(self) -> Sequence:
-        ...
+    def _get_subprocess_args(self) -> Sequence: ...
 
 
 class SshPortTunnelSidecar(PortTunnelSidecar):
@@ -184,7 +181,9 @@ class WebsocatPortTunnelSidecar(PortTunnelSidecar):
         return [
             "websocat",
             f"tcp-listen:0.0.0.0:{self._local_port}",
-            '{}/{}'.format(get_connection_uri(self._node._network, self._node._node_ip), self._remote_port),
+            "{}/{}".format(
+                get_connection_uri(self._node._network, self._node._node_ip), self._remote_port
+            ),
             f"-H=Authorization:Bearer {self._node._network.node.app_key}",
             "--binary",
         ]
