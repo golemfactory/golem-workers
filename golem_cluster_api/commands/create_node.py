@@ -2,11 +2,12 @@ from pydantic import Field
 from typing import Mapping, List
 
 from golem.managers import NegotiatingPlugin, PaymentPlatformNegotiator
+from golem.managers.base import ManagerPluginException
 from golem.node import GolemNode
 from golem.resources import Proposal, Agreement, DemandBuilder, Activity
 from golem_cluster_api.cluster import Cluster, Sidecar
 from golem_cluster_api.commands.base import CommandResponse, CommandRequest, Command
-from golem_cluster_api.exceptions import ObjectNotFound
+from golem_cluster_api.exceptions import ObjectNotFound, NegotiationFailed
 from golem_cluster_api.golem import NodeConfigNegotiator
 from golem_cluster_api.models import NodeConfig, NodeOut
 
@@ -70,20 +71,24 @@ class CreateNodeCommand(Command[CreateNodeRequest, CreateNodeResponse]):
             node=NodeOut.from_node(node),
         )
 
-    def _prepare_node_config(self, cluster: Cluster, request: CreateNodeRequest, ) -> NodeConfig:
+    def _prepare_node_config(
+        self,
+        cluster: Cluster,
+        request: CreateNodeRequest,
+    ) -> NodeConfig:
         # TODO MVP: validate initially optional, but required for activity creation (for e.g. image url)
         node_config = cluster.get_node_type_config(request.node_type)
         return node_config.combine(request.node_config)
 
-
-    async def _prepare_demand_builder(self, cluster: Cluster, node_config: NodeConfig) -> DemandBuilder:
+    async def _prepare_demand_builder(
+        self, cluster: Cluster, node_config: NodeConfig
+    ) -> DemandBuilder:
         allocation = await cluster.payment_manager.get_allocation()
-        return await node_config.market_config.demand.create_demand_builder(
-            allocation
-        )
+        return await node_config.market_config.demand.create_demand_builder(allocation)
 
-    async def _negotiate_initial_proposal(self, request: CreateNodeRequest, demand_builder: DemandBuilder) -> Proposal:
-        # TODO MVP: Handle not existing proposal id
+    async def _negotiate_initial_proposal(
+        self, request: CreateNodeRequest, demand_builder: DemandBuilder
+    ) -> Proposal:
         initial_proposal = Proposal(self._golem_node, request.proposal_id)
 
         negotiating_plugin = NegotiatingPlugin(
@@ -93,8 +98,18 @@ class CreateNodeCommand(Command[CreateNodeRequest, CreateNodeResponse]):
             ),
         )
 
-        demand_data = await initial_proposal.demand.get_demand_data()
-        return await negotiating_plugin._negotiate_proposal(demand_data, initial_proposal)
+        try:
+            demand_data = await initial_proposal.demand.get_demand_data()
+        except AssertionError:
+            # FIXME: use proper checking if proposal exists, instead of relaying on "parent is not set" error
+            raise ObjectNotFound(f"Proposal with id `{request.proposal_id}` does not exists!")
+
+        try:
+            return await negotiating_plugin._negotiate_proposal(demand_data, initial_proposal)
+        except ManagerPluginException as e:
+            raise NegotiationFailed(
+                f"Proposal with id `{request.proposal_id}` negotiation failed! {e}"
+            ) from e
 
     async def _create_activity(self, proposal: Proposal) -> Activity:
         agreement: Agreement = await proposal.create_agreement()

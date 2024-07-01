@@ -9,7 +9,7 @@ from golem.utils.logging import get_trace_id_name
 from golem_cluster_api.cluster.node import Node
 from golem_cluster_api.cluster.sidecars import Sidecar
 from golem_cluster_api.golem import DriverListAllocationPaymentManager
-from golem_cluster_api.models import NodeConfig, PaymentConfig, State, ImportableCommand
+from golem_cluster_api.models import NodeConfig, PaymentConfig, State, ImportableWorkFunc
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ class Cluster:
         self._start_task: Optional[asyncio.Task] = None
         self.payment_manager = DriverListAllocationPaymentManager(
             network.node,
-            budget=5, # FIXME: use config / generic budget control,
+            budget=5,  # FIXME: use config / generic budget control,
             network=payment_config.network,
             driver=payment_config.driver,
         )
@@ -137,8 +137,8 @@ class Cluster:
         self,
         activity: Activity,
         node_ip,
-        on_start_commands: List[ImportableCommand],
-        on_stop_commands: List[ImportableCommand],
+        on_start_commands: List[ImportableWorkFunc],
+        on_stop_commands: List[ImportableWorkFunc],
         sidecars: List[Sidecar],
     ) -> Node:
         node_id = self._get_new_node_id()

@@ -1,19 +1,15 @@
 from itertools import chain
 
 import collections
-
-
 import json
-
 import shlex
-
 from typing import Mapping, Optional, Union, Sequence, MutableMapping
 from ya_activity import ExeScriptRequest
 
 from golem.resources import Activity, PoolingBatch
 
 
-class WorkContextAction:
+class WorkContextCommand:
     def __init__(self, context: "WorkContext", script: Sequence[Mapping]) -> None:
         self._context = context
         self._script = script
@@ -47,17 +43,17 @@ class WorkContext:
     def activity(self):
         return self._activity
 
-    def _make_action(self, script: Union[Mapping, Sequence[Mapping]]) -> WorkContextAction:
+    def _make_command(self, script: Union[Mapping, Sequence[Mapping]]) -> WorkContextCommand:
         if not isinstance(script, collections.Sequence):
             script = [script]
 
-        return WorkContextAction(self, script)
+        return WorkContextCommand(self, script)
 
-    def deploy(self, args: Optional[Mapping] = None) -> WorkContextAction:
-        return self._make_action({"deploy": args or {}})
+    def deploy(self, args: Optional[Mapping] = None) -> WorkContextCommand:
+        return self._make_command({"deploy": args or {}})
 
-    def start(self) -> WorkContextAction:
-        return self._make_action({"start": {}})
+    def start(self) -> WorkContextCommand:
+        return self._make_command({"start": {}})
 
     def run(
         self,
@@ -65,7 +61,7 @@ class WorkContext:
         *,
         shell: Optional[bool] = None,
         shell_cmd: str = "/bin/sh",
-    ) -> WorkContextAction:
+    ) -> WorkContextCommand:
         """Run.
 
         :param command: Either a list `[entry_point, *args]` or a string.
@@ -99,7 +95,7 @@ class WorkContext:
         if 1 < len(entry_point.split()):
             raise ValueError(f"Whitespaces in entry point '{entry_point}' are forbidden")
 
-        return self._make_action(
+        return self._make_command(
             {
                 "run": {
                     "entry_point": entry_point,
@@ -119,5 +115,5 @@ class WorkContext:
     async def destroy(self) -> None:
         await self._activity.destroy()
 
-    def gather(self, *actions: WorkContextAction) -> WorkContextAction:
-        return self._make_action(list(chain.from_iterable(action.script for action in actions)))
+    def gather(self, *commands: WorkContextCommand) -> WorkContextCommand:
+        return self._make_command(list(chain.from_iterable(action.script for action in commands)))

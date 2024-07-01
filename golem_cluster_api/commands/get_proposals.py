@@ -13,7 +13,7 @@ from golem_cluster_api.utils import collect_initial_proposals
 class GetProposalsRequest(CommandRequest):
     market_config: MarketConfig = Field(
         description="Market configuration to be used for gathering proposals from the market. It's definition can be "
-                    "partial in comparision with definition in node creation."
+        "partial in comparision with definition in node creation."
     )
     payment_config: PaymentConfig = Field(
         default_factory=PaymentConfig,
@@ -22,7 +22,7 @@ class GetProposalsRequest(CommandRequest):
     collection_time_seconds: float = Field(
         default=5,
         description="Number of seconds of how long proposals should be gathered on the market. Too small value can "
-                    "result in less or even no proposals.",
+        "result in less or even no proposals.",
     )
 
 
@@ -33,8 +33,12 @@ class GetProposalsResponse(CommandResponse):
 class GetProposalsCommand(Command[GetProposalsRequest, GetProposalsResponse]):
     """Reads proposals from Golem Network based on given `market_config`."""
 
-    def __init__(self, golem_node: GolemNode, demands: List[Demand],
-                 temp_payment_manager_factory: Callable[..., PaymentManager]) -> None:
+    def __init__(
+        self,
+        golem_node: GolemNode,
+        demands: List[Demand],
+        temp_payment_manager_factory: Callable[..., PaymentManager],
+    ) -> None:
         self._golem_node = golem_node
         self._demands = demands
         self._temp_payment_manager_factory = temp_payment_manager_factory
@@ -50,7 +54,9 @@ class GetProposalsCommand(Command[GetProposalsRequest, GetProposalsResponse]):
         temp_allocation = await temp_payment_manager.get_allocation()
 
         try:
-            demand_builder = await request.market_config.demand.create_demand_builder(temp_allocation)
+            demand_builder = await request.market_config.demand.create_demand_builder(
+                temp_allocation
+            )
         finally:
             await temp_allocation.release()
 

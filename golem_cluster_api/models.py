@@ -32,6 +32,8 @@ class ResponseBaseModel(BaseModel, ABC):
 
 
 class State(Enum):
+    """Enum related to cluster or node state."""
+
     CREATED = "created"
     STARTING = "starting"
     STARTED = "started"
@@ -98,7 +100,7 @@ class ImportableElement(RootModel):
 ImportablePayload = ImportableElement
 ImportableFilter = ImportableElement
 ImportableSidecar = ImportableElement
-ImportableCommand = ImportableElement
+ImportableWorkFunc = ImportableElement
 
 
 class MarketConfigDemand(BaseModel):
@@ -154,6 +156,8 @@ class MarketConfigDemand(BaseModel):
 
 
 class MarketConfig(BaseModel):
+    """Definition of the way of how prepare the demand and how to process found proposals."""
+
     model_config = ConfigDict(extra="forbid")
 
     demand: MarketConfigDemand = Field(default_factory=MarketConfigDemand)
@@ -161,15 +165,30 @@ class MarketConfig(BaseModel):
         default_factory=list,
         description="List of importable filters to be applied on each found proposal.",
     )
+    sorters: List[ImportableElement] = Field(
+        default_factory=list,
+        description="List of importable sorters to be applied on all found proposals.",
+    )
 
 
 class NodeConfig(BaseModel):
+    """Definition of the details related to node creation."""
+
     model_config = ConfigDict(extra="forbid")
 
     market_config: MarketConfig = Field(default_factory=MarketConfig)
-    sidecars: List[ImportableSidecar] = Field(default_factory=list)
-    on_start_commands: List[ImportableCommand] = Field(default_factory=list)
-    on_stop_commands: List[ImportableCommand] = Field(default_factory=list)
+    sidecars: List[ImportableSidecar] = Field(
+        default_factory=list,
+        description="List of importable Sidecars that will be started with the node.",
+    )
+    on_start_commands: List[ImportableWorkFunc] = Field(
+        default_factory=list,
+        description="List of importable work functions to run when activity is about to be started.",
+    )
+    on_stop_commands: List[ImportableWorkFunc] = Field(
+        default_factory=list,
+        description="List of importable work functions to run when activity is about to be stopped.",
+    )
 
     def combine(self, other: "NodeConfig") -> "NodeConfig":
         result = deepcopy(self.dict())
@@ -188,6 +207,8 @@ class PaymentConfig(BaseModel):
 
 
 class NodeOut(BaseModel):
+    """Data related to node."""
+
     model_config = ConfigDict(extra="ignore")
 
     node_id: str
@@ -202,6 +223,8 @@ class NodeOut(BaseModel):
 
 
 class ClusterOut(BaseModel):
+    """Data related to cluster."""
+
     model_config = ConfigDict(extra="ignore")
 
     cluster_id: str
@@ -218,6 +241,8 @@ class ClusterOut(BaseModel):
 
 
 class ProposalOut(BaseModel):
+    """Data related to proposal."""
+
     model_config = ConfigDict(extra="ignore", arbitrary_types_allowed=True)
 
     proposal_id: Optional[ProposalId]

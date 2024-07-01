@@ -7,7 +7,7 @@ from golem.utils.asyncio import create_task_with_logging, ensure_cancelled
 from golem.utils.logging import get_trace_id_name
 from golem_cluster_api.cluster.sidecars import Sidecar
 from golem_cluster_api.context import WorkContext
-from golem_cluster_api.models import State, ImportableCommand
+from golem_cluster_api.models import State, ImportableWorkFunc
 
 logger = logging.getLogger(__name__)
 
@@ -21,8 +21,8 @@ class Node:
         activity: Activity,
         node_ip: str,
         network: Network,
-        on_start_commands: List[ImportableCommand],
-        on_stop_commands: List[ImportableCommand],
+        on_start_commands: List[ImportableWorkFunc],
+        on_stop_commands: List[ImportableWorkFunc],
         sidecars: List[Sidecar],
     ) -> None:
         self._node_id = node_id
@@ -139,7 +139,7 @@ class Node:
         except Exception:
             logger.debug(f"Cannot destroy activity {activity}", exc_info=True)
 
-    async def _run_command(self, command: ImportableCommand) -> None:
+    async def _run_command(self, command: ImportableWorkFunc) -> None:
         command_func, command_args, command_kwargs = command.import_object()
 
         await command_func(

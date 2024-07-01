@@ -2,7 +2,7 @@ import asyncio
 import logging.config
 from contextlib import asynccontextmanager
 from enum import Enum
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import FastAPI, Request, status, HTTPException
 from pydantic import BaseModel
 from starlette.responses import JSONResponse
 from typing import Dict, List
@@ -34,15 +34,20 @@ from golem_cluster_api.commands import (
     DeleteNodeRequest,
     DeleteNodeResponse,
 )
-from golem_cluster_api.exceptions import ClusterApiError, ObjectAlreadyExists, ObjectNotFound
+from golem_cluster_api.exceptions import (
+    ClusterApiError,
+    ObjectAlreadyExists,
+    ObjectNotFound,
+    NegotiationFailed,
+)
 from golem_cluster_api.golem import DriverListAllocationPaymentManager
 from golem_cluster_api.settings import Settings
 
 logging.config.dictConfig(DEFAULT_LOGGING)
 
 
-class ErrorMessage(BaseModel):
-    message: str
+class HTTPGenericError(BaseModel):
+    detail: str
 
 
 class Tags(Enum):
@@ -51,7 +56,17 @@ class Tags(Enum):
     NODES = "nodes"
 
 
-responses = {500: {"description": "Error Response", "model": ErrorMessage}}
+responses = {
+    "5XX": {"description": "Unhandled server error", "model": HTTPGenericError},
+}
+
+not_found_responses = {
+    status.HTTP_404_NOT_FOUND: {"description": "Object was not found", "model": HTTPGenericError},
+}
+
+already_exists_responses = {
+    status.HTTP_409_CONFLICT: {"description": "Object already exists", "model": HTTPGenericError},
+}
 
 # TODO MVP: use ClusterRepository instead of global variables
 clusters: Dict[str, Cluster] = {}
@@ -80,12 +95,28 @@ async def lifespan(app: FastAPI):
             await demand.unsubscribe()
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    title="Cluster API Specification",
+    lifespan=lifespan,
+)
 
 
 @app.exception_handler(ClusterApiError)
 async def cluster_api_error_handler(request: Request, exc: ClusterApiError):
-    return JSONResponse(status_code=500, content={"message": f"Unhandled server error! {exc}"})
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": f"Unhandled server error! {exc}"},
+    )
+
+
+@app.exception_handler(ObjectNotFound)
+async def object_not_found_handler(request: Request, exc: ClusterApiError):
+    return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": str(exc)})
+
+
+@app.exception_handler(ObjectAlreadyExists)
+async def object_already_exists_handler(request: Request, exc: ClusterApiError):
+    return JSONResponse(status_code=status.HTTP_409_CONFLICT, content={"detail": str(exc)})
 
 
 @app.post(
@@ -107,7 +138,7 @@ async def get_proposals(
 @app.post(
     "/create-cluster",
     tags=[Tags.CLUSTERS],
-    responses=responses,
+    responses={**responses, **already_exists_responses},
     description=CreateClusterCommand.__doc__,
 )
 async def create_cluster(
@@ -117,55 +148,44 @@ async def create_cluster(
 
     command = CreateClusterCommand(golem_node, clusters_lock, clusters)
 
-    try:
-        return await command(request_data)
-    except ObjectAlreadyExists as e:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=str(e),
-        )
+    return await command(request_data)
 
 
 @app.post(
     "/get-cluster",
     tags=[Tags.CLUSTERS],
-    responses=responses,
+    responses={**responses, **not_found_responses},
     description=GetClusterCommand.__doc__,
 )
 async def get_cluster(request_data: GetClusterRequest) -> GetClusterResponse:
     command = GetClusterCommand(clusters)
 
-    try:
-        return await command(request_data)
-    except ObjectNotFound as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e),
-        )
+    return await command(request_data)
 
 
 @app.post(
     "/delete-cluster",
     tags=[Tags.CLUSTERS],
-    responses=responses,
+    responses={**responses, **not_found_responses},
     description=DeleteClusterCommand.__doc__,
 )
 async def delete_cluster(request_data: DeleteClusterRequest) -> DeleteClusterResponse:
     command = DeleteClusterCommand(clusters_lock, clusters)
 
-    try:
-        return await command(request_data)
-    except ObjectNotFound as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e),
-        )
+    return await command(request_data)
 
 
 @app.post(
     "/create-node",
     tags=[Tags.NODES],
-    responses=responses,
+    responses={
+        **responses,
+        **already_exists_responses,
+        status.HTTP_424_FAILED_DEPENDENCY: {
+            "description": "Proposal negotiation failed.",
+            "model": HTTPGenericError,
+        },
+    },
     description=CreateNodeCommand.__doc__,
 )
 async def create_node(request_data: CreateNodeRequest, request: Request) -> CreateNodeResponse:
@@ -174,9 +194,9 @@ async def create_node(request_data: CreateNodeRequest, request: Request) -> Crea
 
     try:
         return await command(request_data)
-    except ObjectNotFound as e:
+    except NegotiationFailed as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_424_FAILED_DEPENDENCY,
             detail=str(e),
         )
 
@@ -184,34 +204,22 @@ async def create_node(request_data: CreateNodeRequest, request: Request) -> Crea
 @app.post(
     "/get-node",
     tags=[Tags.NODES],
-    responses=responses,
+    responses={**responses, **not_found_responses},
     description=GetNodeCommand.__doc__,
 )
 async def get_node(request_data: GetNodeRequest) -> GetNodeResponse:
     command = GetNodeCommand(clusters)
 
-    try:
-        return await command(request_data)
-    except ObjectNotFound as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e),
-        )
+    return await command(request_data)
 
 
 @app.post(
     "/delete-node",
     tags=[Tags.NODES],
-    responses=responses,
+    responses={**responses, **not_found_responses},
     description=DeleteNodeCommand.__doc__,
 )
 async def delete_node(request_data: DeleteNodeRequest) -> DeleteNodeResponse:
     command = DeleteNodeCommand(clusters)
 
-    try:
-        return await command(request_data)
-    except ObjectNotFound as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e),
-        )
+    return await command(request_data)

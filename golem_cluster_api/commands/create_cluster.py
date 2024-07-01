@@ -9,12 +9,51 @@ from golem_cluster_api.commands.base import Command, CommandResponse, CommandReq
 from golem_cluster_api.exceptions import ObjectAlreadyExists
 from golem_cluster_api.models import PaymentConfig, NodeConfig, ClusterOut
 
+# cluster robi pustą? alokacje przez payment managera
+# budget control dosypuje do alokacji
+# budget control musi miec mozliwosc zapisywania swoich informacji (pamiętać kiedy ostatnio dosypał do alokacji)
+# budget control pozwala lub nie pozwala na stworzenie activity
+# budget control jest filtrem / sorterem do noda
+
+# budget_types = {
+#     "__all__": [
+#
+#     ],
+#     "default": [
+#         "some.field.to.fund-testnet",
+#         {"some.field.to.initial-budget": {
+#             'initial_budget': 5,
+#         }},
+#         {"some.field.to.total-budget": {
+#             'total_budget': 5,
+#         }},
+#         {"some.field.to.per-hour-budget": {
+#             "budget": 1,
+#             "calculate_for": "node",  # enum: "node" / "node_type" / "cluster"
+#             "pricing": {
+#                 "some.pricing.function.path": {
+#                     "foo": "bar",
+#                 }
+#             }
+#         }},
+#     ],
+# }
+#
+#
+# class Budget:
+#     def __init__(self, allocation, persistent_data) -> None:
+#         ...
+#
+
 
 class CreateClusterRequest(CommandRequest):
     cluster_id: str = "default"
     payment_config: PaymentConfig = Field(default_factory=PaymentConfig)
     # budget_control: object  # TODO: importable object that have internal state and can produce filters for each node
-    node_types: Mapping[str, NodeConfig] = Field(default_factory=dict)
+    # budget_control: Mapping[str, ...] = Field(default_factory=dict)
+    node_types: Mapping[str, NodeConfig] = Field(
+        default_factory=dict
+    )  # TODO: Add __all__ special type support
 
 
 class CreateClusterResponse(CommandResponse):

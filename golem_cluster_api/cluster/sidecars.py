@@ -86,7 +86,7 @@ class PortTunnelSidecar(Sidecar, ABC):
 
         if not self.is_running():
             logger.info(
-                "Not stopping `%s` node `%s`, as it's not running",
+                "Not stopping `%s`, as it's not running",
                 self._node,
                 self._get_tunel_type(),
             )
