@@ -1,8 +1,10 @@
+from copy import deepcopy
+
 import asyncio
 import logging.config
 from contextlib import asynccontextmanager
 from enum import Enum
-from fastapi import FastAPI, Request, status, HTTPException
+from fastapi import FastAPI, Request, status
 from pydantic import BaseModel
 from starlette.responses import JSONResponse
 from typing import Dict, List
@@ -38,12 +40,23 @@ from golem_cluster_api.exceptions import (
     ClusterApiError,
     ObjectAlreadyExists,
     ObjectNotFound,
-    NegotiationFailed,
 )
 from golem_cluster_api.golem import DriverListAllocationPaymentManager
 from golem_cluster_api.settings import Settings
 
-logging.config.dictConfig(DEFAULT_LOGGING)
+
+logging_config = deepcopy(DEFAULT_LOGGING)
+logging_config.update(
+    {
+        "loggers": {
+            "golem_cluster_api": {
+                "level": "DEBUG",
+            },
+        },
+    }
+)
+
+logging.config.dictConfig(logging_config)
 
 
 class HTTPGenericError(BaseModel):
@@ -130,7 +143,7 @@ async def get_proposals(
 ) -> GetProposalsResponse:
     golem_node = request.app.state.golem_node
 
-    command = GetProposalsCommand(golem_node, demands, DriverListAllocationPaymentManager)
+    command = GetProposalsCommand(golem_node, DriverListAllocationPaymentManager)
 
     return await command(request_data)
 
@@ -181,10 +194,6 @@ async def delete_cluster(request_data: DeleteClusterRequest) -> DeleteClusterRes
     responses={
         **responses,
         **already_exists_responses,
-        status.HTTP_424_FAILED_DEPENDENCY: {
-            "description": "Proposal negotiation failed.",
-            "model": HTTPGenericError,
-        },
     },
     description=CreateNodeCommand.__doc__,
 )
@@ -192,13 +201,7 @@ async def create_node(request_data: CreateNodeRequest, request: Request) -> Crea
     golem_node = request.app.state.golem_node
     command = CreateNodeCommand(golem_node, clusters)
 
-    try:
-        return await command(request_data)
-    except NegotiationFailed as e:
-        raise HTTPException(
-            status_code=status.HTTP_424_FAILED_DEPENDENCY,
-            detail=str(e),
-        )
+    return await command(request_data)
 
 
 @app.post(

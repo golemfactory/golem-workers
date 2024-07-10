@@ -1,10 +1,18 @@
+import asyncio
+
 from datetime import timedelta
 from pydantic import Field
 from typing import List, Callable
 
-from golem.managers import PaymentManager
+from golem.managers import (
+    PaymentManager,
+    ProposalManagerPlugin,
+    DefaultProposalManager,
+    ProposalScoringMixin,
+    ProposalScorer,
+)
 from golem.node import GolemNode
-from golem.resources import Demand
+from golem.utils.asyncio import SimpleBuffer
 from golem_cluster_api.commands.base import Command, CommandRequest, CommandResponse
 from golem_cluster_api.models import MarketConfig, ProposalOut, PaymentConfig
 from golem_cluster_api.utils import collect_initial_proposals
@@ -13,7 +21,7 @@ from golem_cluster_api.utils import collect_initial_proposals
 class GetProposalsRequest(CommandRequest):
     market_config: MarketConfig = Field(
         description="Market configuration to be used for gathering proposals from the market. It's definition can be "
-        "partial in comparision with definition in node creation."
+        "partial in comparison with definition in node creation."
     )
     payment_config: PaymentConfig = Field(
         default_factory=PaymentConfig,
@@ -36,11 +44,9 @@ class GetProposalsCommand(Command[GetProposalsRequest, GetProposalsResponse]):
     def __init__(
         self,
         golem_node: GolemNode,
-        demands: List[Demand],
         temp_payment_manager_factory: Callable[..., PaymentManager],
     ) -> None:
         self._golem_node = golem_node
-        self._demands = demands
         self._temp_payment_manager_factory = temp_payment_manager_factory
 
     async def __call__(self, request: GetProposalsRequest) -> GetProposalsResponse:
@@ -60,13 +66,57 @@ class GetProposalsCommand(Command[GetProposalsRequest, GetProposalsResponse]):
         finally:
             await temp_allocation.release()
 
+        # TODO: Use offline market scan instead of demand
         demand = await demand_builder.create_demand(self._golem_node)
-        # TODO MVP: Unsubscribe demand after 5 minutes instead of end of the lifetime
-        self._demands.append(demand)
 
-        initial_proposals_data = await collect_initial_proposals(
+        proposals = await collect_initial_proposals(
             demand, timeout=timedelta(seconds=request.collection_time_seconds)
         )
+
+        proposal_queue = SimpleBuffer(proposals)
+        await proposal_queue.set_exception(asyncio.QueueEmpty())
+
+        proposal_manager_plugins = []
+        for filter_definition in request.market_config.filters:
+            obj, args, kwargs = filter_definition.import_object()
+
+            plugin: ProposalManagerPlugin = obj(*args, **kwargs)
+
+            proposal_manager_plugins.append(plugin)
+
+        proposal_manager = DefaultProposalManager(
+            self._golem_node,
+            proposal_queue.get,
+            plugins=proposal_manager_plugins,
+        )
+
+        await proposal_manager.start()
+
+        while True:
+            try:
+                proposals.append(
+                    await proposal_manager.get_draft_proposal()  # FIXME: no negotiation in plugins, so we still receive initial proposals
+                )
+            except asyncio.QueueEmpty:
+                break
+
+        await proposal_manager.stop()
+
+        if request.market_config.sorters:
+            sorters: List[ProposalScorer] = []
+            for sorter_definition in request.market_config.sorters:
+                obj, args, kwargs = sorter_definition.import_object()
+                sorters.append(obj(*args, **kwargs))
+
+            scoring = ProposalScoringMixin(sorters)
+
+            scored_proposals = await scoring.do_scoring(proposals)
+
+            proposals = [p for _, p in scored_proposals]
+
+        proposals_data = [await o.get_proposal_data() for o in proposals]
+
+        await demand.unsubscribe()
 
         return GetProposalsResponse(
             proposals=[
@@ -77,6 +127,6 @@ class GetProposalsCommand(Command[GetProposalsRequest, GetProposalsResponse]):
                     timestamp=proposal_data.timestamp,
                     properties=proposal_data.properties,
                 )
-                for proposal_data in initial_proposals_data
+                for proposal_data in proposals_data
             ],
         )

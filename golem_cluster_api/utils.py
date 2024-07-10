@@ -8,7 +8,7 @@ from shlex import quote
 from typing import List, TypeVar, Optional
 from yarl import URL
 
-from golem.resources import Demand, Proposal, ProposalData, Network
+from golem.resources import Demand, Proposal, Network
 from golem_cluster_api.exceptions import ClusterApiError
 
 logger = logging.getLogger(__name__)
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 TImportType = TypeVar("TImportType")
 
 
-async def collect_initial_proposals(demand: Demand, timeout: timedelta) -> List[ProposalData]:
+async def collect_initial_proposals(demand: Demand, timeout: timedelta) -> List[Proposal]:
     demand.start_collecting_events()
 
     proposals = []
@@ -30,7 +30,7 @@ async def collect_initial_proposals(demand: Demand, timeout: timedelta) -> List[
 
     # demand.stop_collecting_events()
 
-    return [await o.get_proposal_data() for o in proposals]
+    return proposals
 
 
 async def _collect_initial_proposals(demand: Demand, proposals: List[Proposal]) -> None:

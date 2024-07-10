@@ -1,9 +1,9 @@
 from itertools import chain
 
-import collections
+import collections.abc
 import json
 import shlex
-from typing import Mapping, Optional, Union, Sequence, MutableMapping
+from typing import Mapping, Optional, Union, MutableMapping, Sequence
 from ya_activity import ExeScriptRequest
 
 from golem.resources import Activity, PoolingBatch
@@ -28,7 +28,12 @@ class WorkContextCommand:
             self._batch = await self._context.activity.execute(
                 ExeScriptRequest(json.dumps(self._script))
             )
-            return await self._batch.wait()
+            results = await self._batch.wait()
+
+            print(list(event.stderr for event in results))
+            print(list(event.stdout for event in results))
+
+            return results
 
         return inner().__await__()
 
@@ -44,7 +49,7 @@ class WorkContext:
         return self._activity
 
     def _make_command(self, script: Union[Mapping, Sequence[Mapping]]) -> WorkContextCommand:
-        if not isinstance(script, collections.Sequence):
+        if not isinstance(script, collections.abc.Sequence):
             script = [script]
 
         return WorkContextCommand(self, script)

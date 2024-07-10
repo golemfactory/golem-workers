@@ -1,4 +1,4 @@
-from typing import Union, Sequence
+from typing import Union, Sequence, Optional
 
 import asyncio
 
@@ -18,12 +18,17 @@ from golem_cluster_api.utils import (
 logger = logging.getLogger(__name__)
 
 
-async def deploy_and_start_with_vpn(context: WorkContext) -> None:
+async def deploy_and_start_with_vpn(
+    context: WorkContext, deploy_timeout_minutes: Optional[float] = 5
+) -> None:
     deploy_action = context.deploy(
         {"net": [context.extra["network"].deploy_args(context.extra["ip"])]}
     )
 
-    await asyncio.wait_for(deploy_action, timeout=timedelta(minutes=5).total_seconds())
+    if deploy_timeout_minutes:
+        deploy_timeout_minutes = timedelta(minutes=deploy_timeout_minutes).total_seconds()
+
+    await asyncio.wait_for(deploy_action, timeout=deploy_timeout_minutes)
 
     await context.start()
 
@@ -47,6 +52,7 @@ async def prepare_and_run_ssh_server(context: WorkContext, ssh_key_path: str) ->
 
     logger.info("Starting `%s` activity ssh server...", context.activity)
 
+    await context.run("apt install openssh-server")
     await context.run("service ssh start")
 
     logger.info("Starting `%s` activity ssh server done", context.activity)

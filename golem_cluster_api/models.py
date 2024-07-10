@@ -1,18 +1,16 @@
 from abc import ABC
-
-import collections
+import collections.abc
 
 from copy import deepcopy
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, List, Mapping, Optional, Union, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, List, Mapping, Optional, Union, Tuple, Sequence
 
 import dpath
 from typing_extensions import Annotated
 
-from golem.payload import PayloadSyntaxParser, Properties
-from golem.payload import defaults as payload_defaults
-from golem.resources import Allocation, DemandBuilder, ProposalId
+from golem.payload import PayloadSyntaxParser, Properties, Payload, GenericPayload, Constraints
+from golem.resources import ProposalId
 from golem.resources.proposal.data import ProposalState
 from pydantic import BaseModel, ConfigDict, Field, WithJsonSchema, RootModel
 
@@ -31,15 +29,30 @@ class ResponseBaseModel(BaseModel, ABC):
     model_config = ConfigDict(extra="ignore")
 
 
-class State(Enum):
-    """Enum related to cluster or node state."""
+class ClusterState(Enum):
+    """Enum related to cluster state."""
 
     CREATED = "created"
     STARTING = "starting"
     STARTED = "started"
     STOPPING = "stopping"
     STOPPED = "stopped"
-    REMOVING = "removing"
+    DELETING = "deleting"
+
+
+class NodeState(Enum):
+    """Enum related to node state."""
+
+    CREATED = "created"
+    PROVISIONING = "provisioning"
+    PROVISIONING_FAILED = "provisioning-failed"
+    PROVISIONED = "provisioned"
+    STARTING = "starting"
+    STARTING_FAILED = "starting-failed"
+    STARTED = "started"
+    STOPPING = "stopping"
+    STOPPED = "stopped"
+    DELETING = "deleting"
 
 
 # TODO POC: extend https://docs.pydantic.dev/latest/api/types/#pydantic.types.ImportString
@@ -87,7 +100,7 @@ class ImportableElement(RootModel):
 
         imported_object = import_from_dotted_path(path)
 
-        if isinstance(data, collections.Sequence):
+        if isinstance(data, collections.abc.Sequence):
             args = data
             kwargs = {}
         else:
@@ -97,10 +110,24 @@ class ImportableElement(RootModel):
         return imported_object, args, kwargs
 
 
+ImportableBudget = ImportableElement
 ImportablePayload = ImportableElement
 ImportableFilter = ImportableElement
+ImportableSorter = ImportableElement
 ImportableSidecar = ImportableElement
 ImportableWorkFunc = ImportableElement
+
+
+class BudgetScope(Enum):
+    # GLOBAL = "global"
+    CLUSTER = "cluster"
+    NODE_TYPE = "node_type"
+    NODE = "node"
+
+
+class BudgetConfig(BaseModel):
+    budget: ImportableBudget
+    scope: BudgetScope = BudgetScope.NODE
 
 
 class MarketConfigDemand(BaseModel):
@@ -121,38 +148,29 @@ class MarketConfigDemand(BaseModel):
         description="List of [raw constraints](https://github.com/golemfactory/golem-architecture/pull/83) to be added to the demand on top of payloads.",
     )
 
-    async def create_demand_builder(self, allocation: Allocation) -> DemandBuilder:
-        demand_builder = DemandBuilder()
-
-        all_payloads = [
-            payload_defaults.ActivityInfo(
-                lifetime=payload_defaults.DEFAULT_LIFETIME, multi_activity=True
-            ),
-            payload_defaults.PaymentInfo(),
-            await allocation.get_demand_spec(),
-        ]
+    async def prepare_payloads(self) -> Sequence[Payload]:
+        payloads = []
 
         for payload in self.payloads:
             payload_class, payload_args, payload_kwargs = payload.import_object()
 
-            all_payloads.append(payload_class(*payload_args, **payload_kwargs))
-
-        for demand_spec in all_payloads:
-            await demand_builder.add(demand_spec)
+            payloads.append(payload_class(*payload_args, **payload_kwargs))
 
         # TODO MVP: move Properties creation to object parsing?
-        demand_builder.add_properties(Properties(self.properties))
-
-        if self.constraints:
-            # TODO MVP: move Constraints creation to object parsing?
-            constraints = PayloadSyntaxParser.get_instance().parse_constraints(
-                "(& {})".format(
-                    " ".join(c if c.startswith("(") else f"({c})" for c in self.constraints)
+        # TODO MVP: move Constraints creation to object parsing?
+        payloads.append(
+            GenericPayload(
+                properties=Properties(self.properties),
+                constraints=PayloadSyntaxParser.get_instance().parse_constraints(
+                    "(& {})".format(
+                        " ".join(c if c.startswith("(") else f"({c})" for c in self.constraints)
+                    )
                 )
+                or Constraints(),
             )
-            demand_builder.add_constraints(constraints)
+        )
 
-        return demand_builder
+        return payloads
 
 
 class MarketConfig(BaseModel):
@@ -165,7 +183,7 @@ class MarketConfig(BaseModel):
         default_factory=list,
         description="List of importable filters to be applied on each found proposal.",
     )
-    sorters: List[ImportableElement] = Field(
+    sorters: List[ImportableSorter] = Field(
         default_factory=list,
         description="List of importable sorters to be applied on all found proposals.",
     )
@@ -212,7 +230,7 @@ class NodeOut(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     node_id: str
-    state: State
+    state: NodeState
 
     @classmethod
     def from_node(cls, node: "Node") -> "NodeOut":
@@ -228,7 +246,7 @@ class ClusterOut(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     cluster_id: str
-    state: State
+    state: ClusterState
     nodes: Mapping[str, NodeOut]
 
     @classmethod

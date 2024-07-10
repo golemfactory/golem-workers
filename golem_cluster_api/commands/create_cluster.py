@@ -7,7 +7,7 @@ from golem.node import GolemNode
 from golem_cluster_api.cluster import Cluster
 from golem_cluster_api.commands.base import Command, CommandResponse, CommandRequest
 from golem_cluster_api.exceptions import ObjectAlreadyExists
-from golem_cluster_api.models import PaymentConfig, NodeConfig, ClusterOut
+from golem_cluster_api.models import PaymentConfig, NodeConfig, ClusterOut, BudgetConfig
 
 # cluster robi pustą? alokacje przez payment managera
 # budget control dosypuje do alokacji
@@ -15,42 +15,39 @@ from golem_cluster_api.models import PaymentConfig, NodeConfig, ClusterOut
 # budget control pozwala lub nie pozwala na stworzenie activity
 # budget control jest filtrem / sorterem do noda
 
-# budget_types = {
-#     "__all__": [
-#
-#     ],
-#     "default": [
-#         "some.field.to.fund-testnet",
-#         {"some.field.to.initial-budget": {
-#             'initial_budget': 5,
-#         }},
-#         {"some.field.to.total-budget": {
-#             'total_budget': 5,
-#         }},
-#         {"some.field.to.per-hour-budget": {
-#             "budget": 1,
-#             "calculate_for": "node",  # enum: "node" / "node_type" / "cluster"
-#             "pricing": {
-#                 "some.pricing.function.path": {
-#                     "foo": "bar",
-#                 }
-#             }
-#         }},
-#     ],
-# }
-#
-#
-# class Budget:
-#     def __init__(self, allocation, persistent_data) -> None:
-#         ...
-#
+budget_types = {
+    "__all__": [],
+    "default": [
+        "some.field.to.fund-testnet",
+        {
+            "some.field.to.initial-budget": {
+                "initial_budget": 5,
+            }
+        },
+        {
+            "some.field.to.total-budget": {
+                "total_budget": 5,
+            }
+        },
+        {
+            "some.field.to.per-hour-budget": {
+                "budget": 1,
+                "calculate_for": "node",  # enum: "node" / "node_type" / "cluster"
+                "pricing": {
+                    "some.pricing.function.path": {
+                        "foo": "bar",
+                    }
+                },
+            }
+        },
+    ],
+}
 
 
 class CreateClusterRequest(CommandRequest):
     cluster_id: str = "default"
     payment_config: PaymentConfig = Field(default_factory=PaymentConfig)
-    # budget_control: object  # TODO: importable object that have internal state and can produce filters for each node
-    # budget_control: Mapping[str, ...] = Field(default_factory=dict)
+    budget_types: Mapping[str, BudgetConfig] = Field(default_factory=dict)
     node_types: Mapping[str, NodeConfig] = Field(
         default_factory=dict
     )  # TODO: Add __all__ special type support
@@ -89,6 +86,7 @@ class CreateClusterCommand(Command[CreateClusterRequest, CreateClusterResponse])
 
             # TODO: Use ClusterRepository for creation scheduling
             self._clusters[request.cluster_id] = cluster = Cluster(
+                golem_node=self._golem_node,
                 cluster_id=request.cluster_id,
                 network=network,
                 payment_config=request.payment_config,
