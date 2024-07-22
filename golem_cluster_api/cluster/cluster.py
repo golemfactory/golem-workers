@@ -32,17 +32,17 @@ class Cluster:
         golem_node: GolemNode,
         cluster_id: str,
         network: Network,
+        budget_types: Mapping[str, BudgetConfig],
         payment_config: Optional[PaymentConfig] = None,
         node_types: Optional[Mapping[str, NodeConfig]] = None,
-        budget_types: Optional[Mapping[str, BudgetConfig]] = None,
     ) -> None:
         self._golem_node = golem_node
         self._cluster_id = cluster_id
         self.network = network
+        self._budget_types = budget_types
 
         self._payment_config = payment_config or PaymentConfig()
         self._node_types = node_types or {}
-        self._budget_types = budget_types or {}
 
         self._manager_stacks: Dict[str, ManagerStack] = {}
         self._budgets: Dict[str, Budget] = {}
@@ -76,11 +76,15 @@ class Cluster:
 
     @property
     def nodes(self) -> Mapping[str, Node]:
-        """Read-only map of named nodes.
-
-        Nodes will persist in the collection even after they are terminated."""
+        """Read-only map of named nodes."""
 
         return self._nodes
+
+    @property
+    def budget_types(self) -> Mapping[str, BudgetConfig]:
+        """Read-only map of named budget configurations."""
+
+        return self._budget_types
 
     def schedule_start(self) -> None:
         """Schedule start of the node in another asyncio task."""
@@ -151,29 +155,38 @@ class Cluster:
         self._nodes_id_counter += 1
         return node_id
 
-    def get_node_type_config(self, node_type: str) -> NodeConfig:
-        return self._node_types.get(node_type, NodeConfig())
+    def get_node_type_config(self, node_type: str) -> Optional[NodeConfig]:
+        return self._node_types.get(node_type)
 
-    async def _get_or_create_manager_stack(self, market_config: MarketConfig) -> ManagerStack:
-        manager_stack_key = self._get_manager_stack_key(market_config)
+    async def _get_or_create_manager_stack(
+        self, market_config: MarketConfig, budget_type: str, node_type: str, node_id: str
+    ) -> ManagerStack:
+        budget_key = self._get_budget_key(budget_type, node_type, node_id)
+        manager_stack_key = self._get_manager_stack_key(market_config, budget_key)
 
         manager_stack = self._manager_stacks.get(manager_stack_key)
 
         if not manager_stack:
-            self._manager_stacks[manager_stack_key] = manager_stack = await ManagerStack.create(
+            budget = self._get_or_create_budget(budget_type, node_type, node_id)
+
+            self._manager_stacks[manager_stack_key] = (
+                manager_stack
+            ) = await ManagerStack.create_agreement_stack(
                 self._golem_node,
                 self.payment_manager.get_allocation,
                 market_config,
+                budget,
             )
 
             await manager_stack.start()
 
         return manager_stack
 
-    def _get_manager_stack_key(self, market_config: MarketConfig) -> str:
-        return hashlib.md5(market_config.json().encode()).hexdigest()
+    def _get_manager_stack_key(self, market_config: MarketConfig, budget_key: str) -> str:
+        hashed_stack = hashlib.md5(market_config.json().encode()).hexdigest()
+        return f"{hashed_stack}-{budget_key}"
 
-    def get_or_create_budget(self, budget_type: str, node_type: str, node_id: str) -> Budget:
+    def _get_or_create_budget(self, budget_type: str, node_type: str, node_id: str) -> Budget:
         budget_key = self._get_budget_key(budget_type, node_type, node_id)
 
         budget = self._budgets.get(budget_key)
@@ -195,13 +208,15 @@ class Cluster:
         else:
             return f"{budget_type}-{node_type}-{node_id}"
 
-    def create_node(self, node_config: NodeConfig) -> Node:
+    def create_node(self, node_config: NodeConfig, node_type: str, budget_type: str) -> Node:
         node_id = self._get_new_node_id()
 
         self._nodes[node_id] = node = Node(
             node_id=node_id,
             network=self.network,
             node_config=node_config,
+            budget_type=budget_type,
+            node_type=node_type,
             get_manager_stack=self._get_or_create_manager_stack,
         )
 

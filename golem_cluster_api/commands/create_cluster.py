@@ -2,6 +2,7 @@ import asyncio
 
 from pydantic import Field
 from typing import Mapping, MutableMapping
+from typing_extensions import Annotated
 
 from golem.node import GolemNode
 from golem_cluster_api.cluster import Cluster
@@ -9,45 +10,22 @@ from golem_cluster_api.commands.base import Command, CommandResponse, CommandReq
 from golem_cluster_api.exceptions import ObjectAlreadyExists
 from golem_cluster_api.models import PaymentConfig, NodeConfig, ClusterOut, BudgetConfig
 
-# cluster robi pustą? alokacje przez payment managera
-# budget control dosypuje do alokacji
-# budget control musi miec mozliwosc zapisywania swoich informacji (pamiętać kiedy ostatnio dosypał do alokacji)
-# budget control pozwala lub nie pozwala na stworzenie activity
-# budget control jest filtrem / sorterem do noda
 
-budget_types = {
-    "__all__": [],
-    "default": [
-        "some.field.to.fund-testnet",
-        {
-            "some.field.to.initial-budget": {
-                "initial_budget": 5,
-            }
-        },
-        {
-            "some.field.to.total-budget": {
-                "total_budget": 5,
-            }
-        },
-        {
-            "some.field.to.per-hour-budget": {
-                "budget": 1,
-                "calculate_for": "node",  # enum: "node" / "node_type" / "cluster"
-                "pricing": {
-                    "some.pricing.function.path": {
-                        "foo": "bar",
-                    }
-                },
-            }
-        },
-    ],
-}
+# budget to abstrakcja
+# jedna z implementacji budgetu to LineaModelBudget
+# Supportuje implicit initial price w coeffsach
+# defaultowo jest implementacja do supportu coeffów czas i cpu usage
+# możliwość podania mapy nazwa coeffa na konkretną implementację coeffa
+# w zaleznosci od implementacji budget moze byc strict albo nie (ignorowanie proposali, ktore maja coeffsy nie supportowane)
+
+# do budgetu można wpinać agreementy, które są później brane pod uwagę przy podliczaniu
+# cluster api w zależności od ustawienia wpina do budgetu pojedyncze agreementy albo agreementy z node_typa albo nawet i z calego clustra
 
 
 class CreateClusterRequest(CommandRequest):
     cluster_id: str = "default"
     payment_config: PaymentConfig = Field(default_factory=PaymentConfig)
-    budget_types: Mapping[str, BudgetConfig] = Field(default_factory=dict)
+    budget_types: Annotated[Mapping[str, BudgetConfig], Field(min_length=1)]
     node_types: Mapping[str, NodeConfig] = Field(
         default_factory=dict
     )  # TODO: Add __all__ special type support
@@ -89,6 +67,7 @@ class CreateClusterCommand(Command[CreateClusterRequest, CreateClusterResponse])
                 golem_node=self._golem_node,
                 cluster_id=request.cluster_id,
                 network=network,
+                budget_types=request.budget_types,
                 payment_config=request.payment_config,
                 node_types=request.node_types,
             )

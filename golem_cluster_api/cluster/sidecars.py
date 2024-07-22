@@ -18,10 +18,13 @@ logger = logging.getLogger(__name__)
 class Sidecar(ABC):
     """Base class for companion business logic that runs in relation to the node."""
 
-    @abstractmethod
-    async def start(self, node: "Node") -> None:
-        """Start the sidecar and its internal state."""
+    def __init__(self, node: "Node") -> None:
         self._node = node
+
+    @abstractmethod
+    async def start(self) -> None:
+        """Start the sidecar and its internal state."""
+        ...
 
     @abstractmethod
     async def stop(self) -> None:
@@ -42,20 +45,21 @@ class PortTunnelSidecar(Sidecar, ABC):
 
     def __init__(
         self,
+        node: "Node",
         *,
         local_port: int,
         remote_port: Optional[int] = None,
     ) -> None:
+        super().__init__(node)
+
         self._local_port = local_port
         self._remote_port = remote_port or local_port
 
         self._tunnel_process: Optional[Process] = None
         self._early_exit_task: Optional[asyncio.Task] = None
 
-    async def start(self, node: "Node") -> None:
+    async def start(self) -> None:
         """Start the sidecar and its internal state."""
-
-        await super().start(node)
 
         if self.is_running():
             logger.info(
@@ -86,7 +90,7 @@ class PortTunnelSidecar(Sidecar, ABC):
 
         if not self.is_running():
             logger.info(
-                "Not stopping `%s`, as it's not running",
+                "Not stopping `%s` node `%s` tunnel, as it's not running",
                 self._node,
                 self._get_tunel_type(),
             )
@@ -133,12 +137,13 @@ class SshPortTunnelSidecar(PortTunnelSidecar):
 
     def __init__(
         self,
+        node: "Node",
         *,
         ssh_private_key_path: str,
         reverse: bool = False,
         **kwargs,
     ) -> None:
-        super().__init__(**kwargs)
+        super().__init__(node, **kwargs)
 
         self._ssh_private_key_path = ssh_private_key_path
         self._reverse = reverse

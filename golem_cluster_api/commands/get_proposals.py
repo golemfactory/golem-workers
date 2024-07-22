@@ -2,26 +2,27 @@ import asyncio
 
 from datetime import timedelta
 from pydantic import Field
-from typing import List, Callable
+from typing import List, Callable, Optional
 
 from golem.managers import (
     PaymentManager,
-    ProposalManagerPlugin,
-    DefaultProposalManager,
     ProposalScoringMixin,
-    ProposalScorer,
 )
 from golem.node import GolemNode
-from golem.utils.asyncio import SimpleBuffer
+from golem.resources import Allocation, Proposal
+from golem_cluster_api.cluster import ManagerStack
 from golem_cluster_api.commands.base import Command, CommandRequest, CommandResponse
-from golem_cluster_api.models import MarketConfig, ProposalOut, PaymentConfig
-from golem_cluster_api.utils import collect_initial_proposals
+from golem_cluster_api.models import MarketConfig, ProposalOut, PaymentConfig, ImportableBudget
 
 
 class GetProposalsRequest(CommandRequest):
     market_config: MarketConfig = Field(
         description="Market configuration to be used for gathering proposals from the market. It's definition can be "
         "partial in comparison with definition in node creation."
+    )
+    budget: Optional[ImportableBudget] = Field(
+        default=ImportableBudget("golem_cluster_api.budgets.BlankBudget"),
+        description="Budget to be used for market processing.",
     )
     payment_config: PaymentConfig = Field(
         default_factory=PaymentConfig,
@@ -59,64 +60,72 @@ class GetProposalsCommand(Command[GetProposalsRequest, GetProposalsResponse]):
 
         temp_allocation = await temp_payment_manager.get_allocation()
 
-        try:
-            demand_builder = await request.market_config.demand.create_demand_builder(
-                temp_allocation
-            )
-        finally:
-            await temp_allocation.release()
+        async def get_allocation() -> Allocation:
+            return temp_allocation
+
+        budget_class, budget_args, budget_kwargs = request.budget.import_object()
+        budget = budget_class(*budget_args, **budget_kwargs)
 
         # TODO: Use offline market scan instead of demand
-        demand = await demand_builder.create_demand(self._golem_node)
-
-        proposals = await collect_initial_proposals(
-            demand, timeout=timedelta(seconds=request.collection_time_seconds)
-        )
-
-        proposal_queue = SimpleBuffer(proposals)
-        await proposal_queue.set_exception(asyncio.QueueEmpty())
-
-        proposal_manager_plugins = []
-        for filter_definition in request.market_config.filters:
-            obj, args, kwargs = filter_definition.import_object()
-
-            plugin: ProposalManagerPlugin = obj(*args, **kwargs)
-
-            proposal_manager_plugins.append(plugin)
-
-        proposal_manager = DefaultProposalManager(
+        simple_manager_stack = await ManagerStack.create_basic_stack(
             self._golem_node,
-            proposal_queue.get,
-            plugins=proposal_manager_plugins,
+            get_allocation,
+            request.market_config,
+            budget,
         )
 
-        await proposal_manager.start()
+        await simple_manager_stack.start()
 
-        while True:
-            try:
-                proposals.append(
-                    await proposal_manager.get_draft_proposal()  # FIXME: no negotiation in plugins, so we still receive initial proposals
-                )
-            except asyncio.QueueEmpty:
-                break
+        proposals = await self._collect_proposals(
+            simple_manager_stack, timeout=timedelta(seconds=request.collection_time_seconds)
+        )
 
-        await proposal_manager.stop()
+        # proposal_queue = SimpleBuffer(proposals)
+        # await proposal_queue.set_exception(asyncio.QueueEmpty())
 
-        if request.market_config.sorters:
-            sorters: List[ProposalScorer] = []
-            for sorter_definition in request.market_config.sorters:
-                obj, args, kwargs = sorter_definition.import_object()
-                sorters.append(obj(*args, **kwargs))
+        # proposal_manager_plugins = []
+        # for filter_definition in request.market_config.filters:
+        #     obj, args, kwargs = filter_definition.import_object()
+        #
+        #     plugin: ProposalManagerPlugin = obj(*args, **kwargs)
+        #
+        #     proposal_manager_plugins.append(plugin)
 
-            scoring = ProposalScoringMixin(sorters)
+        # proposal_manager = DefaultProposalManager(
+        #     self._golem_node,
+        #     proposal_queue.get,
+        #     # plugins=proposal_manager_plugins,
+        # )
+        #
+        # await proposal_manager.start()
+        #
+        # while True:
+        #     try:
+        #         proposals.append(
+        #             await proposal_manager.get_draft_proposal()  # FIXME: no negotiation in plugins, so we still receive initial proposals
+        #         )
+        #     except asyncio.QueueEmpty:
+        #         break
+        #
+        # await proposal_manager.stop()
 
-            scored_proposals = await scoring.do_scoring(proposals)
+        # if request.market_config.sorters:
+        #     sorters: List[ProposalScorer] = []
+        #     for sorter_definition in request.market_config.sorters:
+        #         obj, args, kwargs = sorter_definition.import_object()
+        #         sorters.append(obj(*args, **kwargs))
+        #
 
-            proposals = [p for _, p in scored_proposals]
+        scoring = ProposalScoringMixin(await budget.get_pre_negotiation_scorers())
+
+        scored_proposals = await scoring.do_scoring(proposals)
+
+        proposals = [p for _, p in scored_proposals]
 
         proposals_data = [await o.get_proposal_data() for o in proposals]
 
-        await demand.unsubscribe()
+        await simple_manager_stack.stop()
+        await temp_allocation.release()
 
         return GetProposalsResponse(
             proposals=[
@@ -130,3 +139,23 @@ class GetProposalsCommand(Command[GetProposalsRequest, GetProposalsResponse]):
                 for proposal_data in proposals_data
             ],
         )
+
+    async def _collect_proposals(
+        self, manager_stack: ManagerStack, timeout: timedelta
+    ) -> List[Proposal]:
+        proposals = []
+
+        proposals_coro = self._collect_proposals_coro(manager_stack, proposals)
+
+        try:
+            await asyncio.wait_for(proposals_coro, timeout=timeout.total_seconds())
+        except asyncio.TimeoutError:
+            pass
+
+        return proposals
+
+    async def _collect_proposals_coro(
+        self, manager_stack: ManagerStack, proposals: List[Proposal]
+    ) -> None:
+        while True:
+            proposals.append(await manager_stack.get_draft_proposal())

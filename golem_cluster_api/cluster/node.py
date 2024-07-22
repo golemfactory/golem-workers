@@ -21,11 +21,15 @@ class Node:
         node_id: str,
         network: Network,
         node_config: NodeConfig,
-        get_manager_stack: Callable[[MarketConfig], Awaitable[ManagerStack]],
+        budget_type: str,
+        node_type: str,
+        get_manager_stack: Callable[[MarketConfig, str, str, str], Awaitable[ManagerStack]],
     ) -> None:
         self._node_id = node_id
         self._network = network
         self._node_config = node_config
+        self._budget_type = budget_type
+        self._node_type = node_type
         self._get_manager_stack = get_manager_stack
 
         self._sidecars = self._prepare_sidecars()
@@ -56,7 +60,7 @@ class Node:
 
         for sidecar in self._node_config.sidecars:
             sidecar_class, sidecar_args, sidecar_kwargs = sidecar.import_object()
-            sidecars.append(sidecar_class(*sidecar_args, **sidecar_kwargs))
+            sidecars.append(sidecar_class(self, *sidecar_args, **sidecar_kwargs))
 
         return sidecars
 
@@ -82,7 +86,9 @@ class Node:
 
         self._state = NodeState.PROVISIONING
 
-        manager_stack = await self._get_manager_stack(self._node_config.market_config)
+        manager_stack = await self._get_manager_stack(
+            self._node_config.market_config, self._budget_type, self._node_type, self._node_id
+        )
 
         agreement = await manager_stack.get_agreement()
         agreement_data = await agreement.get_agreement_data()
@@ -141,7 +147,7 @@ class Node:
             return
 
         for sidecar in self._sidecars:
-            await sidecar.start(self)
+            await sidecar.start()
 
         self._state = NodeState.STARTED
         self._background_task = None

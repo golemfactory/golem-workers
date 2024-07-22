@@ -1,19 +1,13 @@
 import logging
 
-from pydantic import Field
+from pydantic import model_validator
 from typing import Mapping, Optional
 
 from golem.node import GolemNode
 from golem_cluster_api.cluster import Cluster
 from golem_cluster_api.commands.base import CommandResponse, CommandRequest, Command
 from golem_cluster_api.exceptions import ObjectNotFound
-from golem_cluster_api.models import NodeConfig, NodeOut
-
-
-# Tworzenie noda zwraca od razu i startuje jego odpalenie
-# node próbuje zestawić activity ze swojego demanda, póki mu się nie uda
-# uwspólnianie takich samych demandów / jednoczesne robienie wielu nodów z jednego demanda
-# usuwanie demanda jesli przez 5 minut nie bedzie zadnego zainteresowania
+from golem_cluster_api.models import NodeConfig, NodeOut, BudgetScope
 
 
 logger = logging.getLogger(__name__)
@@ -23,7 +17,14 @@ class CreateNodeRequest(CommandRequest):
     cluster_id: str = "default"
     budget_type: str = "default"
     node_type: Optional[str] = "default"
-    node_config: NodeConfig = Field(default_factory=NodeConfig)
+    node_config: Optional[NodeConfig] = None
+
+    @model_validator(mode="after")
+    def validate_node_type_and_node_config(self):
+        if self.node_type is None and self.node_config is None:
+            raise ValueError("At least one of `node_type` or `node_config` must be defined!")
+
+        return self
 
 
 class CreateNodeResponse(CommandResponse):
@@ -53,13 +54,35 @@ class CreateNodeCommand(Command[CreateNodeRequest, CreateNodeResponse]):
         if not cluster:
             raise ObjectNotFound(f"Cluster with id `{request.cluster_id}` does not exists!")
 
-        cluster_node_config = cluster.get_node_type_config(request.node_type)
-        node_config = cluster_node_config.combine(request.node_config)
+        node_config = request.node_config
+
+        if request.node_type is not None:
+            cluster_node_config = cluster.get_node_type_config(request.node_type)
+
+            if not cluster_node_config:
+                raise ObjectNotFound(
+                    f"Node type `{request.budget_type}` does not exists in the cluster!"
+                )
+
+            if node_config is not None:
+                node_config = cluster_node_config.combine(node_config)
+
+        budget_config = cluster.budget_types.get(request.budget_type)
+
+        if budget_config is None:
+            raise ObjectNotFound(
+                f"Budget type `{request.budget_type}` does not exists in the cluster!"
+            )
+
+        if budget_config.scope == BudgetScope.NODE_TYPE and request.node_type is None:
+            raise ValueError(
+                f"Budget type `{request.budget_type}` with scope of `{BudgetScope.NODE_TYPE}` requires `node_type` field!"
+            )
 
         # TODO: Validate node config
 
         # TODO: Use ClusterRepository for creation scheduling
-        node = cluster.create_node(node_config)
+        node = cluster.create_node(node_config, request.node_type, request.budget_type)
 
         return CreateNodeResponse(
             node=NodeOut.from_node(node),

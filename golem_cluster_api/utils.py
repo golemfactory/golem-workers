@@ -8,34 +8,12 @@ from shlex import quote
 from typing import List, TypeVar, Optional
 from yarl import URL
 
-from golem.resources import Demand, Proposal, Network
+from golem.resources import Network
 from golem_cluster_api.exceptions import ClusterApiError
 
 logger = logging.getLogger(__name__)
 
 TImportType = TypeVar("TImportType")
-
-
-async def collect_initial_proposals(demand: Demand, timeout: timedelta) -> List[Proposal]:
-    demand.start_collecting_events()
-
-    proposals = []
-
-    proposals_coro = _collect_initial_proposals(demand, proposals)
-
-    try:
-        await asyncio.wait_for(proposals_coro, timeout=timeout.total_seconds())
-    except asyncio.TimeoutError:
-        pass
-
-    # demand.stop_collecting_events()
-
-    return proposals
-
-
-async def _collect_initial_proposals(demand: Demand, proposals: List[Proposal]) -> None:
-    async for proposal in demand.initial_proposals():
-        proposals.append(proposal)
 
 
 def import_from_dotted_path(dotted_path: str):

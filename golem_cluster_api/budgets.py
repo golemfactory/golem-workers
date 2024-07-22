@@ -1,5 +1,17 @@
 import logging
 from abc import ABC
+from datetime import timedelta
+from typing import Optional, Sequence, MutableSequence
+
+from golem.managers import (
+    ProposalManagerPlugin,
+    RejectIfCostsExceeds,
+    LinearCoeffsCost,
+    LinearPerCpuAverageCostPricing,
+    ProposalScorer,
+    MapScore,
+)
+from golem.payload import Payload
 
 # from golem_cluster_api.cluster import Cluster, Node
 
@@ -7,14 +19,23 @@ logger = logging.getLogger(__name__)
 
 
 class Budget(ABC):
-    def __init__(self):
-        self._agreements = []
-
     async def start(self):
         pass
 
     async def stop(self):
         pass
+
+    async def get_payloads(self) -> Sequence[Payload]:
+        return []
+
+    async def get_pre_negotiation_plugins(self) -> Sequence[ProposalManagerPlugin]:
+        return []
+
+    async def get_post_negotiation_plugins(self) -> Sequence[ProposalManagerPlugin]:
+        return []
+
+    async def get_pre_negotiation_scorers(self) -> Sequence[ProposalScorer]:
+        return []
 
 
 #     async def register_agreement(self, agreement: Agreement):
@@ -33,15 +54,91 @@ class Budget(ABC):
 #     async def sort_proposal(self):
 #         ...
 
-#
-# class LinearModelBudget(Budget):
-#     def __init__(self, coefs: Dict[str, Callable[[Properties], Optional[float]]]) -> None:
-#         self._coefs = coefs
-#
-#     def _calculate_price(self, properties: Properties) -> float:
-#
-#         ...
-#
+
+class BlankBudget(Budget): ...
+
+
+class LinearModelBudget(Budget):
+    def __init__(
+        self,
+        max_initial_price: Optional[float] = None,
+        max_duration_hour_price: Optional[float] = None,
+        max_cpu_hour_price: Optional[float] = None,
+    ) -> None:
+        self._max_initial_price = max_initial_price
+        self._max_duration_price = (
+            max_duration_hour_price / 3600 if max_duration_hour_price is not None else None
+        )
+        self._max_cpu_price = max_cpu_hour_price / 3600 if max_cpu_hour_price is not None else None
+
+    async def get_pre_negotiation_plugins(self) -> Sequence[ProposalManagerPlugin]:
+        plugins = []
+
+        # TODO: Optionally reject proposals with unknown and non-zero coeffs
+
+        self._append_coeff_proposal_manager_plugin(
+            plugins, self._max_initial_price, "price_initial"
+        )
+        self._append_coeff_proposal_manager_plugin(
+            plugins, self._max_duration_price, "price_duration_sec"
+        )
+        self._append_coeff_proposal_manager_plugin(plugins, self._max_cpu_price, "price_cpu_sec")
+
+        return plugins
+
+    async def get_post_negotiation_plugins(self) -> Sequence[ProposalManagerPlugin]:
+        plugins = []
+
+        return plugins
+
+    @staticmethod
+    def _append_coeff_proposal_manager_plugin(
+        plugins: MutableSequence[ProposalManagerPlugin], vector_value: Optional[float], coeff: str
+    ) -> None:
+        if vector_value is not None:
+            plugins.append(RejectIfCostsExceeds(vector_value, LinearCoeffsCost(coeff)))
+
+
+class AveragePerCpuUsageLinearModelBudget(LinearModelBudget):
+    def __init__(
+        self,
+        average_cpu_load: float,
+        average_duration_hours: float,
+        average_max_cost: Optional[float] = None,
+        *args,
+        **kwargs,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+
+        self._average_cpu_load = average_cpu_load
+        self._average_duration = average_duration_hours / 3600
+        self._average_max_cost = average_max_cost
+
+        self._linear_per_cpu_average_cost = LinearPerCpuAverageCostPricing(
+            average_cpu_load=self._average_cpu_load,
+            average_duration=timedelta(seconds=self._average_duration),
+        )
+
+    async def get_pre_negotiation_plugins(self) -> Sequence[ProposalManagerPlugin]:
+        plugins = list(await super().get_pre_negotiation_plugins())
+
+        if self._average_max_cost is not None:
+            plugins.append(
+                RejectIfCostsExceeds(self._average_max_cost, self._linear_per_cpu_average_cost),
+            )
+
+        return plugins
+
+    async def get_pre_negotiation_scorers(self) -> Sequence[ProposalScorer]:
+        scorers = list(await super().get_pre_negotiation_scorers())
+
+        scorers.append(
+            MapScore(self._linear_per_cpu_average_cost, normalize=True, normalize_flip=True)
+        )
+
+        return scorers
+
+
 #
 # CLUSTER_EXTRA_INITIAL_BUDGET_KEY = "initial_budget"
 #
