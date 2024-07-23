@@ -7,8 +7,8 @@ from datetime import timedelta
 from pathlib import Path
 
 from golem.resources import BatchError
-from golem_cluster_api.context import WorkContext
-from golem_cluster_api.utils import (
+from golem_workers.context import WorkContext
+from golem_workers.utils import (
     create_ssh_key,
     get_ssh_command,
     get_ssh_proxy_command,

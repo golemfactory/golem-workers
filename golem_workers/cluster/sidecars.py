@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING, Optional, Sequence
 from golem.utils.asyncio import create_task_with_logging, ensure_cancelled
 from golem.utils.logging import get_trace_id_name
 
-from golem_cluster_api.utils import run_subprocess, get_ssh_proxy_command, get_connection_uri
+from golem_workers.utils import run_subprocess, get_ssh_proxy_command, get_connection_uri
 
 if TYPE_CHECKING:
-    from golem_cluster_api.cluster.node import Node
+    from golem_workers.cluster.node import Node
 
 logger = logging.getLogger(__name__)
 

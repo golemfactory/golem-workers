@@ -57,7 +57,7 @@ RUN --mount=type=cache,target=/root/.cache \
 # copy project requirement files here to ensure they will be cached.
 WORKDIR $PYSETUP_PATH
 COPY poetry.lock pyproject.toml README.md ./
-COPY golem_cluster_api ./golem_cluster_api
+COPY golem_workers ./golem_workers
 
 # install runtime deps - uses $POETRY_VIRTUALENVS_IN_PROJECT internally
 RUN --mount=type=cache,target=/root/.cache \
@@ -87,7 +87,7 @@ RUN --mount=type=cache,target=/root/.cache \
 WORKDIR /app
 
 EXPOSE 8000
-CMD ["uvicorn", "--host", "0.0.0.0", "golem_cluster_api.main:app"]
+CMD ["uvicorn", "--host", "0.0.0.0", "golem_workers.main:app"]
 
 
 ################################
@@ -96,7 +96,9 @@ CMD ["uvicorn", "--host", "0.0.0.0", "golem_cluster_api.main:app"]
 ################################
 FROM python-base as production
 ENV FASTAPI_ENV=production
+
 COPY --from=builder-base $PYSETUP_PATH $PYSETUP_PATH
-COPY ./golem_cluster_api /app/
+COPY ./golem_workers /app/
+
 WORKDIR /app
-CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "golem_cluster_api.main:app"]
+CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "golem_workers.main:app"]

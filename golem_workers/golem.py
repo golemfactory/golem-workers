@@ -11,7 +11,7 @@ from golem.resources import Allocation, AllocationException, DemandData, Proposa
 from golem.utils.logging import trace_span
 from ya_payment import models
 
-from golem_cluster_api.utils import run_subprocess_output
+from golem_workers.utils import run_subprocess_output
 
 YAGNA_PATH = Path(os.getenv("YAGNA_PATH", "yagna"))
 

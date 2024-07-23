@@ -2,10 +2,10 @@ from typing import MutableMapping
 
 import asyncio
 
-from golem_cluster_api.cluster import Cluster
-from golem_cluster_api.commands.base import Command, CommandRequest, CommandResponse
-from golem_cluster_api.exceptions import ObjectNotFound
-from golem_cluster_api.models import ClusterOut
+from golem_workers.cluster import Cluster
+from golem_workers.commands.base import Command, CommandRequest, CommandResponse
+from golem_workers.exceptions import ObjectNotFound
+from golem_workers.models import ClusterOut
 
 
 class DeleteClusterRequest(CommandRequest):

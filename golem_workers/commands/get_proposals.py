@@ -10,9 +10,9 @@ from golem.managers import (
 )
 from golem.node import GolemNode
 from golem.resources import Allocation, Proposal
-from golem_cluster_api.cluster import ManagerStack
-from golem_cluster_api.commands.base import Command, CommandRequest, CommandResponse
-from golem_cluster_api.models import MarketConfig, ProposalOut, PaymentConfig, ImportableBudget
+from golem_workers.cluster import ManagerStack
+from golem_workers.commands.base import Command, CommandRequest, CommandResponse
+from golem_workers.models import MarketConfig, ProposalOut, PaymentConfig, ImportableBudget
 
 
 class GetProposalsRequest(CommandRequest):
@@ -21,7 +21,7 @@ class GetProposalsRequest(CommandRequest):
         "partial in comparison with definition in node creation."
     )
     budget: Optional[ImportableBudget] = Field(
-        default=ImportableBudget("golem_cluster_api.budgets.BlankBudget"),
+        default=ImportableBudget("golem_workers.budgets.BlankBudget"),
         description="Budget to be used for market processing.",
     )
     payment_config: PaymentConfig = Field(

@@ -1,27 +1,27 @@
 from typing import Mapping
 
-from golem_cluster_api.cluster import Cluster
-from golem_cluster_api.commands.base import Command, CommandRequest, CommandResponse
-from golem_cluster_api.exceptions import ObjectNotFound
-from golem_cluster_api.models import NodeOut
+from golem_workers.cluster import Cluster
+from golem_workers.commands.base import Command, CommandRequest, CommandResponse
+from golem_workers.exceptions import ObjectNotFound
+from golem_workers.models import NodeOut
 
 
-class GetNodeRequest(CommandRequest):
+class DeleteNodeRequest(CommandRequest):
     cluster_id: str
     node_id: str
 
 
-class GetNodeResponse(CommandResponse):
+class DeleteNodeResponse(CommandResponse):
     node: NodeOut
 
 
-class GetNodeCommand(Command[GetNodeRequest, GetNodeResponse]):
-    """Read node info and status"""
+class DeleteNodeCommand(Command[DeleteNodeRequest, DeleteNodeResponse]):
+    """Marks node for deletion and schedules its stop."""
 
     def __init__(self, clusters: Mapping[str, Cluster]) -> None:
         self._clusters = clusters
 
-    async def __call__(self, request: GetNodeRequest) -> GetNodeResponse:
+    async def __call__(self, request: DeleteNodeRequest) -> DeleteNodeResponse:
         """
         Raises:
             ObjectNotFound: If given `cluster_id` is not found in cluster collection or given
@@ -38,6 +38,9 @@ class GetNodeCommand(Command[GetNodeRequest, GetNodeResponse]):
         if not node:
             raise ObjectNotFound(f"Node with id `{request.node_id}` does not exists in cluster!")
 
-        return GetNodeResponse(
+        # TODO: Use ClusterRepository for deletion scheduling
+        await cluster.delete_node(node)
+
+        return DeleteNodeResponse(
             node=NodeOut.from_node(node),
         )

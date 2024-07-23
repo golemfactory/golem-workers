@@ -5,10 +5,10 @@ from typing import List, Optional, Callable, Awaitable
 from golem.resources import Activity, Network, BatchError
 from golem.utils.asyncio import create_task_with_logging, ensure_cancelled
 from golem.utils.logging import get_trace_id_name
-from golem_cluster_api.cluster.manager_stack import ManagerStack
-from golem_cluster_api.cluster.sidecars import Sidecar
-from golem_cluster_api.context import WorkContext
-from golem_cluster_api.models import NodeState, ImportableWorkFunc, NodeConfig, MarketConfig
+from golem_workers.cluster.manager_stack import ManagerStack
+from golem_workers.cluster.sidecars import Sidecar
+from golem_workers.context import WorkContext
+from golem_workers.models import NodeState, ImportableWorkFunc, NodeConfig, MarketConfig
 
 logger = logging.getLogger(__name__)
 

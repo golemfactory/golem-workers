@@ -7,12 +7,12 @@ from golem.node import GolemNode
 from golem.resources import Network
 from golem.utils.asyncio import create_task_with_logging
 from golem.utils.logging import get_trace_id_name
-from golem_cluster_api.budgets import Budget
-from golem_cluster_api.cluster.manager_stack import ManagerStack
+from golem_workers.budgets import Budget
+from golem_workers.cluster.manager_stack import ManagerStack
 
-from golem_cluster_api.cluster.node import Node
-from golem_cluster_api.golem import DriverListAllocationPaymentManager
-from golem_cluster_api.models import (
+from golem_workers.cluster.node import Node
+from golem_workers.golem import DriverListAllocationPaymentManager
+from golem_workers.models import (
     NodeConfig,
     PaymentConfig,
     BudgetConfig,

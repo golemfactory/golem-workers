@@ -4,10 +4,10 @@ from pydantic import model_validator
 from typing import Mapping, Optional
 
 from golem.node import GolemNode
-from golem_cluster_api.cluster import Cluster
-from golem_cluster_api.commands.base import CommandResponse, CommandRequest, Command
-from golem_cluster_api.exceptions import ObjectNotFound
-from golem_cluster_api.models import NodeConfig, NodeOut, BudgetScope
+from golem_workers.cluster import Cluster
+from golem_workers.commands.base import CommandResponse, CommandRequest, Command
+from golem_workers.exceptions import ObjectNotFound
+from golem_workers.models import NodeConfig, NodeOut, BudgetScope
 
 
 logger = logging.getLogger(__name__)

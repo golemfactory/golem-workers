@@ -1,0 +1,19 @@
+from golem.exceptions import GolemException
+
+
+class GolemWorkersError(Exception): ...
+
+
+class RegistryRequestError(GolemWorkersError): ...
+
+
+class ProposalPoolException(GolemException): ...
+
+
+class ObjectNotFound(GolemWorkersError): ...
+
+
+class ObjectAlreadyExists(GolemWorkersError): ...
+
+
+class NegotiationFailed(GolemWorkersError): ...

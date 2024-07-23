@@ -18,7 +18,7 @@ from golem.payload import (
 from pydantic import AnyUrl
 from yarl import URL
 
-from golem_cluster_api.exceptions import ClusterApiError, RegistryRequestError
+from golem_workers.exceptions import GolemWorkersError, RegistryRequestError
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +176,7 @@ class ClusterNodePayload(Payload):
 
     async def _get_image_url_and_hash(self) -> Tuple[Optional[URL], Optional[str]]:
         if self.image_tag is not None and self.image_hash is not None:
-            raise ClusterApiError("Either the `image_tag` or `image_hash` is allowed, not both.")
+            raise GolemWorkersError("Either the `image_tag` or `image_hash` is allowed, not both.")
 
         if self.image_hash is not None:
             image_url = await self._get_image_url_from_hash(self.image_hash)

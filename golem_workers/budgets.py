@@ -13,7 +13,7 @@ from golem.managers import (
 )
 from golem.payload import Payload
 
-# from golem_cluster_api.cluster import Cluster, Node
+# from golem_workers.cluster import Cluster, Node
 
 logger = logging.getLogger(__name__)
 

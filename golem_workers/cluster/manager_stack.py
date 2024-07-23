@@ -16,8 +16,8 @@ from golem.managers import (
 from golem.managers.demand.single_use import SingleUseDemandManager
 from golem.node import GolemNode
 from golem.resources import Agreement, Allocation, Proposal
-from golem_cluster_api.budgets import Budget
-from golem_cluster_api.models import MarketConfig
+from golem_workers.budgets import Budget
+from golem_workers.models import MarketConfig
 
 TManager = TypeVar("TManager", bound=Manager)
 

@@ -12,8 +12,8 @@ from typing import Dict, List
 from golem.node import GolemNode
 from golem.resources import Demand
 from golem.utils.logging import DEFAULT_LOGGING
-from golem_cluster_api.cluster import Cluster
-from golem_cluster_api.commands import (
+from golem_workers.cluster import Cluster
+from golem_workers.commands import (
     GetProposalsCommand,
     GetProposalsRequest,
     GetProposalsResponse,
@@ -36,20 +36,20 @@ from golem_cluster_api.commands import (
     DeleteNodeRequest,
     DeleteNodeResponse,
 )
-from golem_cluster_api.exceptions import (
-    ClusterApiError,
+from golem_workers.exceptions import (
+    GolemWorkersError,
     ObjectAlreadyExists,
     ObjectNotFound,
 )
-from golem_cluster_api.golem import DriverListAllocationPaymentManager
-from golem_cluster_api.settings import Settings
+from golem_workers.golem import DriverListAllocationPaymentManager
+from golem_workers.settings import Settings
 
 
 logging_config = deepcopy(DEFAULT_LOGGING)
 logging_config.update(
     {
         "loggers": {
-            "golem_cluster_api": {
+            "golem_workers": {
                 "level": "DEBUG",
             },
         },
@@ -114,8 +114,8 @@ app = FastAPI(
 )
 
 
-@app.exception_handler(ClusterApiError)
-async def cluster_api_error_handler(request: Request, exc: ClusterApiError):
+@app.exception_handler(GolemWorkersError)
+async def golem_workers_error_handler(request: Request, exc: GolemWorkersError):
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": f"Unhandled server error! {exc}"},
@@ -123,12 +123,12 @@ async def cluster_api_error_handler(request: Request, exc: ClusterApiError):
 
 
 @app.exception_handler(ObjectNotFound)
-async def object_not_found_handler(request: Request, exc: ClusterApiError):
+async def object_not_found_handler(request: Request, exc: GolemWorkersError):
     return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": str(exc)})
 
 
 @app.exception_handler(ObjectAlreadyExists)
-async def object_already_exists_handler(request: Request, exc: ClusterApiError):
+async def object_already_exists_handler(request: Request, exc: GolemWorkersError):
     return JSONResponse(status_code=status.HTTP_409_CONFLICT, content={"detail": str(exc)})
 
 

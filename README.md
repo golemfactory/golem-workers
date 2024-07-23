@@ -1,4 +1,4 @@
-# cluster-api
+# golem-workers
 
 ## Getting started
 
@@ -54,6 +54,7 @@ Below are two of the simplest ways to start it.
    ```
 
 3. Build and start compose project in the background.
+   Note that at current stage, your Python and Poetry version needs to match versions used in `Dockerfile`.
    Note that because of decentralized fashion, `golem-node` needs a moment to gather information from the Golem Network and amount of returned proposals can be impacted.
    ```shell
    docker compose up -d --build

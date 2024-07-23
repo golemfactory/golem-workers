@@ -5,10 +5,10 @@ from typing import Mapping, MutableMapping
 from typing_extensions import Annotated
 
 from golem.node import GolemNode
-from golem_cluster_api.cluster import Cluster
-from golem_cluster_api.commands.base import Command, CommandResponse, CommandRequest
-from golem_cluster_api.exceptions import ObjectAlreadyExists
-from golem_cluster_api.models import PaymentConfig, NodeConfig, ClusterOut, BudgetConfig
+from golem_workers.cluster import Cluster
+from golem_workers.commands.base import Command, CommandResponse, CommandRequest
+from golem_workers.exceptions import ObjectAlreadyExists
+from golem_workers.models import PaymentConfig, NodeConfig, ClusterOut, BudgetConfig
 
 
 # budget to abstrakcja

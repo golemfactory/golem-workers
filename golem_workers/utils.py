@@ -9,7 +9,7 @@ from typing import List, TypeVar, Optional
 from yarl import URL
 
 from golem.resources import Network
-from golem_cluster_api.exceptions import ClusterApiError
+from golem_workers.exceptions import GolemWorkersError
 
 logger = logging.getLogger(__name__)
 
@@ -54,10 +54,10 @@ async def run_subprocess_output(*args, timeout: Optional[timedelta] = None) -> b
             process.kill()
             await process.wait()
 
-        raise ClusterApiError(f"Process could not finish in timeout of {timeout}!") from e
+        raise GolemWorkersError(f"Process could not finish in timeout of {timeout}!") from e
 
     if process.returncode != 0:
-        raise ClusterApiError(
+        raise GolemWorkersError(
             f"Process exited with code `{process.returncode}`!\nstdout:\n{stdout}\nstderr:\n{stderr}"
         )
 

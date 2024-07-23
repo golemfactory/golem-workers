@@ -14,11 +14,11 @@ from golem.resources import ProposalId
 from golem.resources.proposal.data import ProposalState
 from pydantic import BaseModel, ConfigDict, Field, WithJsonSchema, RootModel
 
-from golem_cluster_api.utils import import_from_dotted_path
+from golem_workers.utils import import_from_dotted_path
 
 if TYPE_CHECKING:
-    from golem_cluster_api.cluster.cluster import Cluster
-    from golem_cluster_api.cluster.node import Node
+    from golem_workers.cluster.cluster import Cluster
+    from golem_workers.cluster.node import Node
 
 
 class RequestBaseModel(BaseModel, ABC):

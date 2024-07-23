@@ -1,10 +1,10 @@
 [tool.poetry]
-name = "golem-cluster-api"
+name = "golem-workers"
 version = "0.1.0"
-description = "TODO"
+description = "Golem Workers is an API providing direct and high-level access to GPU and CPU resources on the Golem Network."
 authors = ["Golem Factory <contact@golem.network>"]
 readme = "README.md"
-packages = [{include = "golem_cluster_api"}]
+packages = [{include = "golem_workers"}]
 
 [build-system]
 requires = ["poetry-core"]
