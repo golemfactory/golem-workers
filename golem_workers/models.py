@@ -115,6 +115,7 @@ ImportablePayload = ImportableElement
 ImportableFilter = ImportableElement
 ImportableSorter = ImportableElement
 ImportableSidecar = ImportableElement
+ImportableContext = ImportableElement
 ImportableWorkFunc = ImportableElement
 
 
@@ -179,14 +180,14 @@ class MarketConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     demand: MarketConfigDemand = Field(default_factory=MarketConfigDemand)
-    # filters: List[ImportableFilter] = Field(
-    #     default_factory=list,
-    #     description="List of importable filters to be applied on each found proposal.",
-    # )
-    # sorters: List[ImportableSorter] = Field(
-    #     default_factory=list,
-    #     description="List of importable sorters to be applied on all found proposals.",
-    # )
+    filters: List[ImportableFilter] = Field(
+        default_factory=list,
+        description="List of importable filters to be applied on each found proposal.",
+    )
+    sorters: List[ImportableSorter] = Field(
+        default_factory=list,
+        description="List of importable sorters to be applied on all found proposals.",
+    )
 
 
 class NodeConfig(BaseModel):

@@ -4,7 +4,10 @@ version = "0.1.0"
 description = "Golem Workers is an API providing direct and high-level access to GPU and CPU resources on the Golem Network."
 authors = ["Golem Factory <contact@golem.network>"]
 readme = "README.md"
-packages = [{include = "golem_workers"}]
+packages = [
+    {include = "golem_workers"},
+    {include = "golem_reputation"},
+]
 
 [build-system]
 requires = ["poetry-core"]
@@ -18,8 +21,8 @@ priority = "explicit"
 [tool.poetry.dependencies]
 python = "^3.8.1"
 
-#golem-core = {path = "../golem-core-python", develop = true}
-golem-core = {git = "https://github.com/golemfactory/golem-core-python.git", branch = "approxit/cluster-api"}
+golem-core = {path = "../golem-core-python", develop = true}
+#golem-core = {git = "https://github.com/golemfactory/golem-core-python.git", branch = "approxit/cluster-api"}
 #golem-core = "^0.7.3"
 golem-node = "^0.15.0"
 
@@ -27,11 +30,22 @@ fastapi = "^0.111.0"
 pydantic-settings = "^2.3.1"
 dpath = "^2.1.6"
 websocat = "^1.13.0"
+dependency-injector = "^4.41.0"
 
 [tool.poetry.group.dev.dependencies]
 poethepoet = "^0.8"
 ruff = "^0.4.8"
 pydevd-pycharm = ">=231.8109.197,<231.8110.0"
+
+
+[tool.poetry.group.reputation.dependencies]
+aerich = "^0.7.2"
+prettytable = "^3.10.2"
+tortoise-orm = "^0.21.5"
+appdirs = "^1.4.4"
+
+[tool.poetry.scripts]
+golem-reputation = "golem_reputation.entrypoints.cli.main:main"
 
 [tool.poe.tasks]
 checks = {sequence = ["checks_codestyle", "checks_license"], help = "Run all available code checks"}

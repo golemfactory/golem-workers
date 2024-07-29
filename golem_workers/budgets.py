@@ -13,8 +13,6 @@ from golem.managers import (
 )
 from golem.payload import Payload
 
-# from golem_workers.cluster import Cluster, Node
-
 logger = logging.getLogger(__name__)
 
 
@@ -47,12 +45,6 @@ class Budget(ABC):
 #     @abstractmethod
 #     async def can_node_be_created(self, cluster: Cluster, node: Node) -> bool:
 #         ...
-#
-#     async def filter_proposal(self):
-#         ...
-#
-#     async def sort_proposal(self):
-#         ...
 
 
 class BlankBudget(Budget): ...
@@ -83,11 +75,6 @@ class LinearModelBudget(Budget):
             plugins, self._max_duration_price, "price_duration_sec"
         )
         self._append_coeff_proposal_manager_plugin(plugins, self._max_cpu_price, "price_cpu_sec")
-
-        return plugins
-
-    async def get_post_negotiation_plugins(self) -> Sequence[ProposalManagerPlugin]:
-        plugins = []
 
         return plugins
 

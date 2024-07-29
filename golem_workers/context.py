@@ -30,9 +30,6 @@ class WorkContextCommand:
             )
             results = await self._batch.wait()
 
-            print(list(event.stderr for event in results))
-            print(list(event.stdout for event in results))
-
             return results
 
         return inner().__await__()
@@ -54,6 +51,7 @@ class WorkContext:
 
         return WorkContextCommand(self, script)
 
+    # TODO: add deploy_default_args
     def deploy(self, args: Optional[Mapping] = None) -> WorkContextCommand:
         return self._make_command({"deploy": args or {}})
 

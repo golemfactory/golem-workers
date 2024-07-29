@@ -11,20 +11,10 @@ from golem_workers.exceptions import ObjectAlreadyExists
 from golem_workers.models import PaymentConfig, NodeConfig, ClusterOut, BudgetConfig
 
 
-# budget to abstrakcja
-# jedna z implementacji budgetu to LineaModelBudget
-# Supportuje implicit initial price w coeffsach
-# defaultowo jest implementacja do supportu coeffów czas i cpu usage
-# możliwość podania mapy nazwa coeffa na konkretną implementację coeffa
-# w zaleznosci od implementacji budget moze byc strict albo nie (ignorowanie proposali, ktore maja coeffsy nie supportowane)
-
-# do budgetu można wpinać agreementy, które są później brane pod uwagę przy podliczaniu
-# cluster api w zależności od ustawienia wpina do budgetu pojedyncze agreementy albo agreementy z node_typa albo nawet i z calego clustra
-
-
 class CreateClusterRequest(CommandRequest):
     cluster_id: str = "default"
     payment_config: PaymentConfig = Field(default_factory=PaymentConfig)
+    # TODO: network_types: Mapping[str, NetworkConfig]
     budget_types: Annotated[Mapping[str, BudgetConfig], Field(min_length=1)]
     node_types: Mapping[str, NodeConfig] = Field(
         default_factory=dict
