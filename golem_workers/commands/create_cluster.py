@@ -8,14 +8,14 @@ from golem.node import GolemNode
 from golem_workers.cluster import Cluster
 from golem_workers.commands.base import Command, CommandResponse, CommandRequest
 from golem_workers.exceptions import ObjectAlreadyExists
-from golem_workers.models import PaymentConfig, NodeConfig, ClusterOut, BudgetConfig
+from golem_workers.models import PaymentConfig, NodeConfig, ClusterOut, BudgetConfig, NetworkConfig
 
 
 class CreateClusterRequest(CommandRequest):
     cluster_id: str = "default"
     payment_config: PaymentConfig = Field(default_factory=PaymentConfig)
-    # TODO: network_types: Mapping[str, NetworkConfig]
     budget_types: Annotated[Mapping[str, BudgetConfig], Field(min_length=1)]
+    network_types: Mapping[str, NetworkConfig] = Field(default_factory=dict)
     node_types: Mapping[str, NodeConfig] = Field(
         default_factory=dict
     )  # TODO: Add __all__ special type support
@@ -47,18 +47,13 @@ class CreateClusterCommand(Command[CreateClusterRequest, CreateClusterResponse])
             if request.cluster_id in self._clusters:
                 raise ObjectAlreadyExists(f"Cluster with id `{request.cluster_id}` already exists!")
 
-            network = await self._golem_node.create_network(
-                "192.168.0.1/16"
-            )  # TODO MVP: allow for unique network for each cluster
-            await self._golem_node.add_to_network(network)
-
             # TODO: Use ClusterRepository for creation scheduling
             self._clusters[request.cluster_id] = cluster = Cluster(
                 golem_node=self._golem_node,
                 cluster_id=request.cluster_id,
-                network=network,
                 budget_types=request.budget_types,
                 payment_config=request.payment_config,
+                network_types=request.network_types,
                 node_types=request.node_types,
             )
 

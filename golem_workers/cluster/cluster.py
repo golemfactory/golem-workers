@@ -19,6 +19,8 @@ from golem_workers.models import (
     BudgetScope,
     ClusterState,
     MarketConfig,
+    NetworkConfig,
+    NodeNetworkConfig,
 )
 
 logger = logging.getLogger(__name__)
@@ -31,26 +33,27 @@ class Cluster:
         self,
         golem_node: GolemNode,
         cluster_id: str,
-        network: Network,
-        budget_types: Mapping[str, BudgetConfig],
+        budget_types: Mapping[str, BudgetConfig],  # TODO: make budget optional
         payment_config: Optional[PaymentConfig] = None,
+        network_types: Optional[Mapping[str, NetworkConfig]] = None,
         node_types: Optional[Mapping[str, NodeConfig]] = None,
     ) -> None:
         self._golem_node = golem_node
         self._cluster_id = cluster_id
-        self.network = network
         self._budget_types = budget_types
 
         self._payment_config = payment_config or PaymentConfig()
+        self._network_types = network_types or {}
         self._node_types = node_types or {}
 
         self._manager_stacks: Dict[str, ManagerStack] = {}
         self._budgets: Dict[str, Budget] = {}
+        self._networks: Dict[str, Network] = {}
         self._nodes: Dict[str, Node] = {}
         self._nodes_id_counter = 0
         self._start_task: Optional[asyncio.Task] = None
         self.payment_manager = DriverListAllocationPaymentManager(
-            network.node,
+            self._golem_node,
             budget=5,  # FIXME: use config / generic budget control,
             network=payment_config.network,
             driver=payment_config.driver,
@@ -116,6 +119,15 @@ class Cluster:
 
         await self.payment_manager.start()
 
+        for network_name, network_config in self._network_types.items():
+            self._networks[network_name] = await self._golem_node.create_network(
+                ip=network_config.ip,
+                mask=network_config.mask,
+                gateway=network_config.gateway,
+                add_requestor=network_config.add_requestor,
+                requestor_ip=network_config.requestor_ip,
+            )
+
         self._state = ClusterState.STARTED
 
         logger.info("Starting `%s` cluster done", self)
@@ -139,6 +151,8 @@ class Cluster:
 
         await self.payment_manager.stop()
 
+        await asyncio.gather(*[network.remove() for network in self._networks.values()])
+
         self._state = ClusterState.STOPPED
         self._nodes.clear()
         self._manager_stacks.clear()
@@ -157,6 +171,9 @@ class Cluster:
 
     def get_node_type_config(self, node_type: str) -> Optional[NodeConfig]:
         return self._node_types.get(node_type)
+
+    def _get_network(self, network_name: str) -> Network:
+        return self._networks[network_name]
 
     async def _get_or_create_manager_stack(
         self, market_config: MarketConfig, budget_type: str, node_type: str, node_id: str
@@ -208,15 +225,27 @@ class Cluster:
         else:
             return f"{budget_type}-{node_type}-{node_id}"
 
-    def create_node(self, node_config: NodeConfig, node_type: str, budget_type: str) -> Node:
+    def create_node(
+        self,
+        node_config: NodeConfig,
+        node_type: str,
+        budget_type: str,
+        node_networks: Mapping[str, NodeNetworkConfig],
+    ) -> Node:
         node_id = self._get_new_node_id()
 
+        networks = {
+            network_name: self._networks[network_name] for network_name in node_networks.keys()
+        }
+
         self._nodes[node_id] = node = Node(
+            golem_node=self._golem_node,
             node_id=node_id,
-            network=self.network,
+            networks_config=node_networks,
             node_config=node_config,
             budget_type=budget_type,
             node_type=node_type,
+            networks=networks,
             get_manager_stack=self._get_or_create_manager_stack,
         )
 

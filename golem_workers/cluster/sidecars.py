@@ -3,7 +3,9 @@ import logging
 from abc import ABC, abstractmethod
 from asyncio.subprocess import Process
 from typing import TYPE_CHECKING, Optional, Sequence
+from yarl import URL
 
+from golem.node import GolemNode
 from golem.utils.asyncio import create_task_with_logging, ensure_cancelled
 from golem.utils.logging import get_trace_id_name
 
@@ -18,7 +20,8 @@ logger = logging.getLogger(__name__)
 class Sidecar(ABC):
     """Base class for companion business logic that runs in relation to the node."""
 
-    def __init__(self, node: "Node") -> None:
+    def __init__(self, golem_node: GolemNode, node: "Node") -> None:
+        self._golem_node = golem_node
         self._node = node
 
     @abstractmethod
@@ -45,13 +48,16 @@ class PortTunnelSidecar(Sidecar, ABC):
 
     def __init__(
         self,
+        golem_node: GolemNode,
         node: "Node",
         *,
+        network_name: str,
         local_port: int,
         remote_port: Optional[int] = None,
     ) -> None:
-        super().__init__(node)
+        super().__init__(golem_node, node)
 
+        self._network_name = network_name
         self._local_port = local_port
         self._remote_port = remote_port or local_port
 
@@ -128,6 +134,10 @@ class PortTunnelSidecar(Sidecar, ABC):
     @abstractmethod
     def _get_subprocess_args(self) -> Sequence: ...
 
+    def _get_network_connection_uri(self) -> URL:
+        network, node_ip = self._node.get_network(self._network_name)
+        return get_connection_uri(network, node_ip)
+
 
 class SshPortTunnelSidecar(PortTunnelSidecar):
     """Sidecar that runs ssh tunnel from the local machine the related node.
@@ -137,21 +147,22 @@ class SshPortTunnelSidecar(PortTunnelSidecar):
 
     def __init__(
         self,
+        golem_node: GolemNode,
         node: "Node",
         *,
         ssh_private_key_path: str,
         reverse: bool = False,
         **kwargs,
     ) -> None:
-        super().__init__(node, **kwargs)
+        super().__init__(golem_node, node, **kwargs)
 
         self._ssh_private_key_path = ssh_private_key_path
         self._reverse = reverse
 
     def _get_subprocess_args(self) -> Sequence:
         ssh_proxy_command = get_ssh_proxy_command(
-            get_connection_uri(self._node._network, self._node._node_ip),
-            self._node._network.node.app_key,
+            self._get_network_connection_uri(),
+            self._golem_node.app_key,
         )
 
         return [
@@ -186,9 +197,7 @@ class WebsocatPortTunnelSidecar(PortTunnelSidecar):
         return [
             "websocat",
             f"tcp-listen:0.0.0.0:{self._local_port}",
-            "{}/{}".format(
-                get_connection_uri(self._node._network, self._node._node_ip), self._remote_port
-            ),
-            f"-H=Authorization:Bearer {self._node._network.node.app_key}",
+            f"{self._get_network_connection_uri()}/{self._remote_port}",
+            f"-H=Authorization:Bearer {self._golem_node.app_key}",
             "--binary",
         ]

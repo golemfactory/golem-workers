@@ -21,14 +21,10 @@ logger = logging.getLogger(__name__)
 async def deploy_and_start_with_vpn(
     context: WorkContext, deploy_timeout_minutes: Optional[float] = 5
 ) -> None:
-    deploy_action = context.deploy(
-        {"net": [context.extra["network"].deploy_args(context.extra["ip"])]}
-    )
-
     if deploy_timeout_minutes:
         deploy_timeout_minutes = timedelta(minutes=deploy_timeout_minutes).total_seconds()
 
-    await asyncio.wait_for(deploy_action, timeout=deploy_timeout_minutes)
+    await asyncio.wait_for(context.deploy(), timeout=deploy_timeout_minutes)
 
     await context.start()
 

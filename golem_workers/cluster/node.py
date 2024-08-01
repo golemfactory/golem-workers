@@ -1,14 +1,21 @@
 import asyncio
 import logging
-from typing import List, Optional, Callable, Awaitable
+from typing import List, Optional, Callable, Awaitable, Mapping, MutableMapping, Tuple
 
+from golem.node import GolemNode
 from golem.resources import Activity, Network, BatchError
 from golem.utils.asyncio import create_task_with_logging, ensure_cancelled
 from golem.utils.logging import get_trace_id_name
 from golem_workers.cluster.manager_stack import ManagerStack
 from golem_workers.cluster.sidecars import Sidecar
 from golem_workers.context import WorkContext
-from golem_workers.models import NodeState, ImportableWorkFunc, NodeConfig, MarketConfig
+from golem_workers.models import (
+    NodeState,
+    ImportableWorkFunc,
+    NodeConfig,
+    MarketConfig,
+    NodeNetworkConfig,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -18,24 +25,28 @@ class Node:
 
     def __init__(
         self,
+        golem_node: GolemNode,
         node_id: str,
-        network: Network,
+        networks_config: Mapping[str, NodeNetworkConfig],
         node_config: NodeConfig,
         budget_type: str,
         node_type: str,
+        networks: Mapping[str, Network],
         get_manager_stack: Callable[[MarketConfig, str, str, str], Awaitable[ManagerStack]],
     ) -> None:
+        self._golem_node = golem_node
         self._node_id = node_id
-        self._network = network
+        self._networks_config = networks_config
         self._node_config = node_config
         self._budget_type = budget_type
         self._node_type = node_type
+        self._networks = networks
         self._get_manager_stack = get_manager_stack
 
         self._sidecars = self._prepare_sidecars()
 
         self._activity: Optional[Activity] = None
-        self._node_ip: Optional[str] = None
+        self._network_ips: MutableMapping[str, str] = {}
 
         self._state = NodeState.CREATED
         self._background_task: Optional[asyncio.Task] = None
@@ -60,7 +71,7 @@ class Node:
 
         for sidecar in self._node_config.sidecars:
             sidecar_class, sidecar_args, sidecar_kwargs = sidecar.import_object()
-            sidecars.append(sidecar_class(self, *sidecar_args, **sidecar_kwargs))
+            sidecars.append(sidecar_class(self._golem_node, self, *sidecar_args, **sidecar_kwargs))
 
         return sidecars
 
@@ -96,7 +107,11 @@ class Node:
         activity = await agreement.create_activity()
 
         self._activity = activity
-        self._node_ip = await self._network.create_node(agreement_data.provider_id)
+
+        for network_name, node_network_config in self._networks_config.items():
+            network = self._networks[network_name]
+            node_id = await network.create_node(agreement_data.provider_id)
+            self._network_ips[network_name] = node_id
 
         self._state = NodeState.PROVISIONED
         self._background_task = None
@@ -202,11 +217,7 @@ class Node:
         try:
             await command_func(
                 WorkContext(
-                    activity=self._activity,
-                    extra={
-                        "network": self._network,
-                        "ip": self._node_ip,
-                    },
+                    activity=self._activity, default_deploy_args=self._get_default_deploy_args()
                 ),
                 *command_args,
                 **command_kwargs,
@@ -223,3 +234,23 @@ class Node:
             raise
         else:
             logger.debug(f"Running `{command}` done")
+
+    def _get_default_deploy_args(self) -> Mapping:
+        net_entries = []
+
+        for network_name, node_network_config in self._networks_config.items():
+            network, node_id = self.get_network(network_name)
+
+            net_entries.append(network.deploy_args(node_id))
+
+        return {
+            "net": net_entries,
+        }
+
+    def get_network(self, network_name: str) -> Tuple[Network, Optional[str]]:
+        """Return Network object correlated with given name and optionally assigned node ip."""
+
+        network = self._networks[network_name]
+        node_ip = self._network_ips.get(network_name)
+
+        return network, node_ip

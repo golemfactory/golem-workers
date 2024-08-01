@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 from itertools import chain
 
 import collections.abc
@@ -36,10 +38,16 @@ class WorkContextCommand:
 
 
 class WorkContext:
-    def __init__(self, activity: Activity, extra: Optional[MutableMapping] = None) -> None:
+    def __init__(
+        self,
+        activity: Activity,
+        extra: Optional[MutableMapping] = None,
+        default_deploy_args: Optional[Mapping] = None,
+    ) -> None:
         self._activity = activity
 
         self.extra = extra or {}
+        self.default_deploy_args: MutableMapping = default_deploy_args or {}
 
     @property
     def activity(self):
@@ -51,9 +59,13 @@ class WorkContext:
 
         return WorkContextCommand(self, script)
 
-    # TODO: add deploy_default_args
     def deploy(self, args: Optional[Mapping] = None) -> WorkContextCommand:
-        return self._make_command({"deploy": args or {}})
+        deploy_args = deepcopy(self.default_deploy_args)
+
+        if args:
+            deploy_args.update(args)
+
+        return self._make_command({"deploy": deploy_args})
 
     def start(self) -> WorkContextCommand:
         return self._make_command({"start": {}})

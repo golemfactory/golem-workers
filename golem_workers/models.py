@@ -174,8 +174,41 @@ class MarketConfigDemand(BaseModel):
         return payloads
 
 
+class NetworkConfig(BaseModel):
+    """Definition of the way how to prepare VPN networks."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ip: Annotated[
+        str,
+        Field(description="IP address of the network. May contain netmask, e.g. `192.168.0.0/24`."),
+    ]
+    mask: Optional[str] = Field(
+        default=None,
+        description="Optional netmask (only if not provided within the `ip` argument).",
+    )
+    gateway: Optional[str] = Field(
+        default=None, description="Optional gateway address for the network."
+    )
+
+    add_requestor: bool = Field(
+        default=True, description="If True, adds requestor with ip `requestor_ip` to the network."
+    )
+    requestor_ip: Optional[str] = Field(
+        default=None,
+        description="Ip of the requestor node in the network. Ignored if not `add_requestor`. If `None`, next free ip will be assigned.",
+    )
+
+
+class NodeNetworkConfig(BaseModel):
+    ip: Optional[str] = Field(
+        default=None,
+        description="Ip of the node in the network. If `None`, next free ip will be assigned.",
+    )
+
+
 class MarketConfig(BaseModel):
-    """Definition of the way of how prepare the demand and how to process found proposals."""
+    """Definition of the way how prepare the demand and how to process found proposals."""
 
     model_config = ConfigDict(extra="forbid")
 
