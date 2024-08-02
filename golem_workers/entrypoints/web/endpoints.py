@@ -1,6 +1,7 @@
 from enum import Enum
-from fastapi import Request, status, APIRouter
+from fastapi import Request, status, APIRouter, Body
 from pydantic import BaseModel
+from typing_extensions import Annotated
 
 from golem_workers import commands
 
@@ -37,7 +38,83 @@ router = APIRouter()
     description=commands.GetProposalsCommand.__doc__,
 )
 async def get_proposals(
-    request_data: commands.GetProposalsRequest, request: Request
+    request_data: Annotated[
+        commands.GetProposalsRequest,
+        Body(
+            openapi_examples={
+                "minimal_cpu": {
+                    "summary": "Minimal CPU",
+                    "description": "This example shows how to select providers for Virtual Machine.",
+                    "value": {
+                        "market_config": {
+                            "demand": {
+                                "payloads": ["golem_workers.payloads.ClusterNodePayload"],
+                            },
+                        },
+                    },
+                },
+                "minimal_gpu": {
+                    "summary": "Single GPU",
+                    "description": "This example shows how to select providers for Virtual Machine with any GPU support.",
+                    "value": {
+                        "market_config": {
+                            "demand": {
+                                "payloads": [
+                                    {
+                                        "golem_workers.payloads.ClusterNodePayload": {
+                                            "runtime": "vm-nvidia",
+                                            "subnet_tag": "gpu-test",
+                                            "min_mem_gib": 16,
+                                            "min_storage_gib": 20,
+                                            "outbound_urls": [
+                                                "https://huggingface.co",
+                                                "https://cdn-lfs.huggingface.co",
+                                                "https://cdn-lfs-us-1.huggingface.co",
+                                                "https://gpu-provider.dev.golem.network",
+                                            ],
+                                        },
+                                    },
+                                ],
+                                "constraints": [
+                                    "golem.!exp.gap-35.v1.inf.gpu.model=*",
+                                ],
+                            },
+                        },
+                    },
+                },
+                "multi_gpu": {
+                    "summary": "Multiple GPU",
+                    "description": "This example shows how to select providers for Virtual Machine with multiple GPU support.",
+                    "value": {
+                        "market_config": {
+                            "demand": {
+                                "payloads": [
+                                    {
+                                        "golem_workers.payloads.ClusterNodePayload": {
+                                            "runtime": "vm-nvidia",
+                                            "subnet_tag": "gpu-test",
+                                            "min_mem_gib": 16,
+                                            "min_storage_gib": 20,
+                                            "outbound_urls": [
+                                                "https://huggingface.co",
+                                                "https://cdn-lfs.huggingface.co",
+                                                "https://cdn-lfs-us-1.huggingface.co",
+                                                "https://gpu-provider.dev.golem.network",
+                                            ],
+                                        },
+                                    },
+                                ],
+                                "constraints": [
+                                    "golem.!exp.gap-35.v1.inf.gpu.d0.quantity>=2",
+                                ],
+                            },
+                        },
+                    },
+                },
+            }
+        ),
+    ],
+    request: Request,
 ) -> commands.GetProposalsResponse:
     command = await request.app.state.container.get_proposal_command()
 
@@ -51,7 +128,61 @@ async def get_proposals(
     description=commands.CreateClusterCommand.__doc__,
 )
 async def create_cluster(
-    request_data: commands.CreateClusterRequest, request: Request
+    request_data: Annotated[
+        commands.CreateClusterRequest,
+        Body(
+            openapi_examples={
+                "linear_budget_vpn_reputation": {
+                    "summary": "Average usage budget, VPN and reputation",
+                    "description": "This example shows how to create cluster that support average usage budget, simple VPN network and Golem Reputation integration. Note that to use this example, integration with Golem Reputation is required at Golem Workers startup - refer to README for more information.",
+                    "value": {
+                        "cluster_id": "example",
+                        "budget_types": {
+                            "default": {
+                                "budget": {
+                                    "golem_workers.budgets.AveragePerCpuUsageLinearModelBudget": {
+                                        "average_cpu_load": 1.0,
+                                        "average_duration_hours": 0.5,
+                                        "average_max_cost": 1.5,
+                                    },
+                                },
+                                "scope": "cluster",
+                            },
+                        },
+                        "network_types": {
+                            "default": {
+                                "ip": "192.168.0.1/16",
+                            },
+                        },
+                        "node_types": {
+                            "default": {
+                                "market_config": {
+                                    "filters": [
+                                        {
+                                            "golem_reputation.ProviderBlacklistPlugin": {
+                                                "payment_network": "holesky",
+                                            },
+                                        },
+                                    ],
+                                    "sorters": [
+                                        {
+                                            "golem_reputation.ReputationScorer": {
+                                                "payment_network": "holesky",
+                                            },
+                                        },
+                                    ],
+                                },
+                                "on_stop_commands": [
+                                    "golem_workers.defaults.stop_activity",
+                                ],
+                            },
+                        },
+                    },
+                },
+            },
+        ),
+    ],
+    request: Request,
 ) -> commands.CreateClusterResponse:
     command = await request.app.state.container.create_cluster_command()
 
@@ -65,7 +196,21 @@ async def create_cluster(
     description=commands.GetClusterCommand.__doc__,
 )
 async def get_cluster(
-    request_data: commands.GetClusterRequest, request: Request
+    request_data: Annotated[
+        commands.GetClusterRequest,
+        Body(
+            openapi_examples={
+                "example": {
+                    "summary": "Example Cluster",
+                    "description": "This example shows how to get the cluster info.",
+                    "value": {
+                        "cluster_id": "example",
+                    },
+                }
+            }
+        ),
+    ],
+    request: Request,
 ) -> commands.GetClusterResponse:
     command = await request.app.state.container.get_cluster_command()
 
@@ -79,7 +224,21 @@ async def get_cluster(
     description=commands.DeleteClusterCommand.__doc__,
 )
 async def delete_cluster(
-    request_data: commands.DeleteClusterRequest, request: Request
+    request_data: Annotated[
+        commands.DeleteClusterRequest,
+        Body(
+            openapi_examples={
+                "example": {
+                    "summary": "Example Cluster",
+                    "description": "This example shows how to delete the cluster.",
+                    "value": {
+                        "cluster_id": "example",
+                    },
+                }
+            }
+        ),
+    ],
+    request: Request,
 ) -> commands.DeleteClusterResponse:
     command = await request.app.state.container.delete_cluster_command()
 
@@ -96,7 +255,120 @@ async def delete_cluster(
     description=commands.CreateNodeCommand.__doc__,
 )
 async def create_node(
-    request_data: commands.CreateNodeRequest, request: Request
+    request_data: Annotated[
+        commands.CreateNodeRequest,
+        Body(
+            openapi_examples={
+                "echo_test": {
+                    "summary": "scalepointai/echo-test:2",
+                    "description": "This example shows how to run echo test. It will use a VPN and proxy traffic from local machine to running vm at http://localhost:8080.",
+                    "value": {
+                        "cluster_id": "example",
+                        "node_networks": {
+                            "default": {
+                                "ip": None,
+                            },
+                        },
+                        "node_config": {
+                            "market_config": {
+                                "demand": {
+                                    "payloads": [
+                                        {
+                                            "golem_workers.payloads.ClusterNodePayload": {
+                                                "image_tag": "scalepointai/echo-test:2",
+                                            },
+                                        },
+                                    ],
+                                },
+                            },
+                            "on_start_commands": [
+                                {
+                                    "golem_workers.defaults.deploy_and_start_with_vpn": {
+                                        "deploy_timeout_minutes": 60,
+                                    },
+                                },
+                                {
+                                    "golem_workers.defaults.run_in_shell": [
+                                        ["nginx"],
+                                    ],
+                                },
+                            ],
+                            "sidecars": [
+                                {
+                                    "golem_workers.cluster.sidecars.WebsocatPortTunnelSidecar": {
+                                        "network_name": "default",
+                                        "local_port": "8080",
+                                        "remote_port": "80",
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                },
+                "automatic": {
+                    "summary": "scalepointai/automatic1111:4",
+                    "description": "This example shows how to run automatic with example model image. Automatic will take few minutes to download example model from Huggingface to provider. It will use a VPN and proxy traffic from local machine to running vm at http://localhost:8080.",
+                    "value": {
+                        "cluster_id": "example",
+                        "node_networks": {
+                            "default": {
+                                "ip": None,
+                            },
+                        },
+                        "node_config": {
+                            "market_config": {
+                                "demand": {
+                                    "payloads": [
+                                        {
+                                            "golem_workers.payloads.ClusterNodePayload": {
+                                                "runtime": "vm-nvidia",
+                                                "image_tag": "scalepointai/automatic1111:4",
+                                                "subnet_tag": "gpu-test",
+                                            },
+                                        },
+                                    ],
+                                },
+                            },
+                            "on_start_commands": [
+                                {
+                                    "golem_workers.defaults.deploy_and_start_with_vpn": {
+                                        "deploy_timeout_minutes": 60,
+                                    },
+                                },
+                                {
+                                    "golem_workers.defaults.prepare_and_run_ssh_server": {
+                                        "ssh_key_path": "/tmp/ssh_key",
+                                    },
+                                },
+                                {
+                                    "golem_workers.defaults.run_in_shell": [
+                                        "cd /usr/src/app/ && ./start.sh --model_url https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.safetensors > /usr/src/app/output/log 2>&1 &",
+                                    ],
+                                },
+                            ],
+                            "sidecars": [
+                                {
+                                    "golem_workers.cluster.sidecars.WebsocatPortTunnelSidecar": {
+                                        "network_name": "default",
+                                        "local_port": "8080",
+                                        "remote_port": "8000",
+                                    }
+                                },
+                                {
+                                    "golem_workers.cluster.sidecars.WebsocatPortTunnelSidecar": {
+                                        "network_name": "default",
+                                        "local_port": "8081",
+                                        "remote_port": "8001",
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                },
+            },
+        ),
+    ],
+    request: Request,
 ) -> commands.CreateNodeResponse:
     command = await request.app.state.container.create_node_command()
 
@@ -110,7 +382,22 @@ async def create_node(
     description=commands.GetNodeCommand.__doc__,
 )
 async def get_node(
-    request_data: commands.GetNodeRequest, request: Request
+    request_data: Annotated[
+        commands.GetNodeRequest,
+        Body(
+            openapi_examples={
+                "vpn_reputation": {
+                    "summary": "Example Node",
+                    "description": "This example shows how to get the node info.",
+                    "value": {
+                        "cluster_id": "example",
+                        "node_id": "node0",
+                    },
+                },
+            },
+        ),
+    ],
+    request: Request,
 ) -> commands.GetNodeResponse:
     command = await request.app.state.container.get_node_command()
 
@@ -124,7 +411,22 @@ async def get_node(
     description=commands.DeleteNodeCommand.__doc__,
 )
 async def delete_node(
-    request_data: commands.DeleteNodeRequest, request: Request
+    request_data: Annotated[
+        commands.DeleteNodeRequest,
+        Body(
+            openapi_examples={
+                "vpn_reputation": {
+                    "summary": "Example Node",
+                    "description": "This example shows how to delete the node.",
+                    "value": {
+                        "cluster_id": "example",
+                        "node_id": "node0",
+                    },
+                },
+            },
+        ),
+    ],
+    request: Request,
 ) -> commands.DeleteNodeResponse:
     command = await request.app.state.container.delete_node_command()
 

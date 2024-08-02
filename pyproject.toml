@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "golem-workers"
 version = "0.1.0"
-description = "Golem Workers is an API providing direct and high-level access to GPU and CPU resources on the Golem Network."
+description = "Golem Workers is an API providing direct and high-level access to CPU and GPU resources on the Golem Network."
 authors = ["Golem Factory <contact@golem.network>"]
 readme = "README.md"
 packages = [
@@ -21,9 +21,9 @@ priority = "explicit"
 [tool.poetry.dependencies]
 python = "^3.8.1"
 
-golem-core = {path = "../golem-core-python", develop = true}
+#golem-core = {path = "../golem-core-python", develop = true}
 #golem-core = {git = "https://github.com/golemfactory/golem-core-python.git", branch = "approxit/cluster-api"}
-#golem-core = "^0.7.3"
+golem-core = "^0.7.5"
 golem-node = "^0.15.0"
 
 fastapi = "^0.111.0"
@@ -32,17 +32,18 @@ dpath = "^2.1.6"
 websocat = "^1.13.0"
 dependency-injector = "^4.41.0"
 
-[tool.poetry.group.dev.dependencies]
-poethepoet = "^0.8"
-ruff = "^0.4.8"
-pydevd-pycharm = ">=231.8109.197,<231.8110.0"
-
-
-[tool.poetry.group.reputation.dependencies]
+# reputation
 aerich = "^0.7.2"
 prettytable = "^3.10.2"
 tortoise-orm = "^0.21.5"
 appdirs = "^1.4.4"
+
+[tool.poetry.group.dev.dependencies]
+poethepoet = "^0.8"
+ruff = "^0.4.8"
+liccheck = "^0.9.2"
+
+pydevd-pycharm = ">=231.8109.197,<231.8110.0"
 
 [tool.poetry.scripts]
 golem-reputation = "golem_reputation.entrypoints.cli.main:main"
@@ -68,3 +69,32 @@ quote-style = "double"
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
+
+[tool.liccheck]
+authorized_licenses = [
+    "bsd",
+    "new bsd",
+    "bsd license",
+    "apache 2",
+    "apache",
+    "Apache Software",
+    "Apache Software License",
+    "MPL-2.0",
+    "Mozilla Public License 2.0 (MPL 2.0)",
+    "MIT",
+    "MIT License",
+    "LGPL",
+    "LGPL-3.0-or-later",
+    "GNU Lesser General Public License v3 or later (LGPLv3+)",
+    "GNU Lesser General Public License v3 (LGPLv3)",
+    "Python Software Foundation",
+    "ISC",
+    "ISC License (ISCL)",
+    "The Unlicense (Unlicense)",
+]
+unauthorized_licenses = [
+    "gpl v3"
+]
+
+[tool.liccheck.authorized_packages]
+websocat = "*"
