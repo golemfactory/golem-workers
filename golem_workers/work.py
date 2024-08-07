@@ -6,7 +6,7 @@ import logging
 from datetime import timedelta
 from pathlib import Path
 
-from golem.resources import BatchError
+from golem.resources import BatchError, DeployArgsType, Network
 from golem_workers.context import WorkContext
 from golem_workers.utils import (
     create_ssh_key,
@@ -18,9 +18,14 @@ from golem_workers.utils import (
 logger = logging.getLogger(__name__)
 
 
-async def deploy_and_start_with_vpn(
+async def deploy_and_start_activity(
     context: WorkContext, deploy_timeout_minutes: Optional[float] = 5
 ) -> None:
+    """Deploy and start activity.
+
+    Depending on image size and state of the image cache on the provider side, deploy step can take considerable amount of time.
+    Timeout can be provided to raise an exception after specific time.
+    """
     if deploy_timeout_minutes:
         deploy_timeout_minutes = timedelta(minutes=deploy_timeout_minutes).total_seconds()
 
@@ -29,10 +34,22 @@ async def deploy_and_start_with_vpn(
     await context.start()
 
 
-async def prepare_and_run_ssh_server(context: WorkContext, ssh_key_path: str) -> None:
+async def prepare_and_run_ssh_server(context: WorkContext, ssh_private_key_path: str) -> None:
+    """Prepare and run SSH server on the provider.
+
+    Provided ssh private key must have correlating public key file with the `.pub` suffix at the same path.
+    If given path is not existing, ssh keys will be generated under given destination.
+
+    Note that this work function requires `ssh-keygen` binary to be available on the requestor if given ssh key is not existing.
+    Note that this work function requires activity to be previously deployed and started.
+    Note that this work function is compatible with VM-like runtimes and depends on `apt` and `service` binaries to be available in the image.
+    """
+    if not len(context.default_deploy_args.get("net", [])):
+        raise RuntimeError("Activity needs to be connected to any VPN network!")
+
     logger.info("Preparing `%s` activity ssh keys...", context.activity)
 
-    ssh_private_key_path = Path(ssh_key_path)
+    ssh_private_key_path = Path(ssh_private_key_path)
     if not ssh_private_key_path.exists():
         await create_ssh_key(ssh_private_key_path)
 
@@ -53,12 +70,16 @@ async def prepare_and_run_ssh_server(context: WorkContext, ssh_key_path: str) ->
 
     logger.info("Starting `%s` activity ssh server done", context.activity)
 
+    network_args: DeployArgsType = context.default_deploy_args["net"][0]
+
     print(
         get_ssh_command(
-            context.extra["ip"],
+            network_args["nodeIp"],
             get_ssh_proxy_command(
-                get_connection_uri(context.extra["network"], context.extra["ip"]),
-                context.extra["network"].node.app_key,
+                get_connection_uri(
+                    Network(context.golem_node, network_args["id"]), network_args["nodeIp"]
+                ),
+                context.golem_node.app_key,
             ),
             "root",
             ssh_private_key_path,
@@ -67,6 +88,10 @@ async def prepare_and_run_ssh_server(context: WorkContext, ssh_key_path: str) ->
 
 
 async def run_in_shell(context: WorkContext, *commands: Union[str, Sequence[str]]) -> None:
+    """Run shell commands.
+
+    Note that this work function requires activity to be previously deployed and started.
+    """
     commands = [context.run(command, shell=True) for command in commands]
 
     try:
@@ -79,4 +104,6 @@ async def run_in_shell(context: WorkContext, *commands: Union[str, Sequence[str]
 
 
 async def stop_activity(context: WorkContext) -> None:
+    """Stop and destroy activity."""
+
     await context.destroy()

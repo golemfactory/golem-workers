@@ -173,7 +173,7 @@ async def create_cluster(
                                     ],
                                 },
                                 "on_stop_commands": [
-                                    "golem_workers.defaults.stop_activity",
+                                    "golem_workers.work.stop_activity",
                                 ],
                             },
                         },
@@ -283,19 +283,19 @@ async def create_node(
                             },
                             "on_start_commands": [
                                 {
-                                    "golem_workers.defaults.deploy_and_start_with_vpn": {
+                                    "golem_workers.work.deploy_and_start_activity": {
                                         "deploy_timeout_minutes": 60,
                                     },
                                 },
                                 {
-                                    "golem_workers.defaults.run_in_shell": [
+                                    "golem_workers.work.run_in_shell": [
                                         ["nginx"],
                                     ],
                                 },
                             ],
                             "sidecars": [
                                 {
-                                    "golem_workers.cluster.sidecars.WebsocatPortTunnelSidecar": {
+                                    "golem_workers.sidecars.WebsocatPortTunnelSidecar": {
                                         "network_name": "default",
                                         "local_port": "8080",
                                         "remote_port": "80",
@@ -331,31 +331,31 @@ async def create_node(
                             },
                             "on_start_commands": [
                                 {
-                                    "golem_workers.defaults.deploy_and_start_with_vpn": {
+                                    "golem_workers.work.deploy_and_start_activity": {
                                         "deploy_timeout_minutes": 60,
                                     },
                                 },
                                 {
-                                    "golem_workers.defaults.prepare_and_run_ssh_server": {
-                                        "ssh_key_path": "/tmp/ssh_key",
+                                    "golem_workers.work.prepare_and_run_ssh_server": {
+                                        "ssh_private_key_path": "/tmp/ssh_key",
                                     },
                                 },
                                 {
-                                    "golem_workers.defaults.run_in_shell": [
+                                    "golem_workers.work.run_in_shell": [
                                         "cd /usr/src/app/ && ./start.sh --model_url https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.safetensors > /usr/src/app/output/log 2>&1 &",
                                     ],
                                 },
                             ],
                             "sidecars": [
                                 {
-                                    "golem_workers.cluster.sidecars.WebsocatPortTunnelSidecar": {
+                                    "golem_workers.sidecars.WebsocatPortTunnelSidecar": {
                                         "network_name": "default",
                                         "local_port": "8080",
                                         "remote_port": "8000",
                                     }
                                 },
                                 {
-                                    "golem_workers.cluster.sidecars.WebsocatPortTunnelSidecar": {
+                                    "golem_workers.sidecars.WebsocatPortTunnelSidecar": {
                                         "network_name": "default",
                                         "local_port": "8081",
                                         "remote_port": "8001",

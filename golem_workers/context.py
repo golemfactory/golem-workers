@@ -8,6 +8,7 @@ import shlex
 from typing import Mapping, Optional, Union, MutableMapping, Sequence
 from ya_activity import ExeScriptRequest
 
+from golem.node import GolemNode
 from golem.resources import Activity, PoolingBatch
 
 
@@ -48,6 +49,10 @@ class WorkContext:
 
         self.extra = extra or {}
         self.default_deploy_args: MutableMapping = default_deploy_args or {}
+
+    @property
+    def golem_node(self) -> GolemNode:
+        return self._activity.node
 
     @property
     def activity(self):

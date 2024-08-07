@@ -18,7 +18,11 @@ TImportType = TypeVar("TImportType")
 
 def import_from_dotted_path(dotted_path: str):
     module_path, func_name = dotted_path.rsplit(".", 1)
-    return getattr(importlib.import_module(module_path), func_name)
+    imported = importlib.import_module(module_path)
+    try:
+        return getattr(imported, func_name)
+    except AttributeError as e:
+        raise ImportError(e)
 
 
 async def run_subprocess(

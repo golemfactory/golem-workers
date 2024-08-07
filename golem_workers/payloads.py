@@ -34,8 +34,8 @@ def get_manifest(
         "createdAt": "2023-06-26T00:00:00.000000Z",
         "expiresAt": "2100-01-01T00:00:00.000000Z",
         "metadata": {
-            "name": "Cluster Api",
-            "description": "Cluster Api",
+            "name": "golem-workers",
+            "description": "golem-workers auto generated manifest",
             "version": "0.0.1",
         },
         "payload": [],
@@ -77,6 +77,11 @@ class MaxCpuThreadsPayload(Payload):
 
 @dataclass
 class ClusterNodePayload(Payload):
+    """General payload for VM-like runtimes.
+
+    It can abstract away golem repository image resolution and preparation of the manifest if outbound urls are used.
+    """
+
     image_hash: Optional[str] = None
     image_tag: Optional[str] = None
     capabilities: List[str] = field(default_factory=lambda: ["vpn", "inet"])

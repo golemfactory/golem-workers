@@ -11,28 +11,37 @@ from golem.managers import (
     ProposalScorer,
     MapScore,
 )
-from golem.payload import Payload
+from golem.payload import Payload, GenericPayload, Properties, Constraints
+from golem.payload.defaults import PROP_PRICING_MODEL
 
 logger = logging.getLogger(__name__)
 
 
 class Budget(ABC):
+    """Base class for budget management."""
+
     async def start(self):
-        pass
+        """Start the budget and its internal state."""
+        ...
 
     async def stop(self):
-        pass
+        """Stop the budget and cleanup its internal state."""
+        ...
 
     async def get_payloads(self) -> Sequence[Payload]:
+        """Return the budget contribution to the demand."""
         return []
 
     async def get_pre_negotiation_plugins(self) -> Sequence[ProposalManagerPlugin]:
+        """Return the budget contribution to the proposal processing before proposal negotiations with the provider."""
         return []
 
     async def get_post_negotiation_plugins(self) -> Sequence[ProposalManagerPlugin]:
+        """Return the budget contribution to the proposal processing after proposal negotiations with the provider."""
         return []
 
     async def get_pre_negotiation_scorers(self) -> Sequence[ProposalScorer]:
+        """Return the budget contribution to the proposal scoring before proposal negotiations with the provider."""
         return []
 
 
@@ -51,6 +60,13 @@ class BlankBudget(Budget): ...
 
 
 class LinearModelBudget(Budget):
+    """Budget with basic support of the `linear` price model.
+
+    It makes the demand to match only `linear` pricing models and filter out proposals that exceeds given prices.
+
+    Note that raw time-based prices in proposals are in per-second format - they must be multiplied by `3600` to be used here.
+    """
+
     def __init__(
         self,
         max_initial_price: Optional[float] = None,
@@ -62,6 +78,14 @@ class LinearModelBudget(Budget):
             max_duration_hour_price / 3600 if max_duration_hour_price is not None else None
         )
         self._max_cpu_price = max_cpu_hour_price / 3600 if max_cpu_hour_price is not None else None
+
+    async def get_payloads(self) -> Sequence[Payload]:
+        return [
+            GenericPayload(
+                properties=Properties({PROP_PRICING_MODEL: "linear"}),
+                constraints=Constraints(),
+            )
+        ]
 
     async def get_pre_negotiation_plugins(self) -> Sequence[ProposalManagerPlugin]:
         plugins = []
@@ -87,6 +111,16 @@ class LinearModelBudget(Budget):
 
 
 class AveragePerCpuUsageLinearModelBudget(LinearModelBudget):
+    """Budget that calculates prices based on average usage of a single cpu.
+
+    This can be helpful to abstract away differences in prices for low or high amount of cpus available in the vms.
+
+    Per cpu average cost is calculated as a sum of:
+    - initial_price / cpu_count
+    - duration_hour_price * average_duration_hours / cpu_count
+    - cpu_hour_price * average_duration_hours * average_cpu_load
+    """
+
     def __init__(
         self,
         average_cpu_load: float,

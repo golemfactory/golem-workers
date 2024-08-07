@@ -142,6 +142,7 @@ class PortTunnelSidecar(Sidecar, ABC):
 class SshPortTunnelSidecar(PortTunnelSidecar):
     """Sidecar that runs ssh tunnel from the local machine the related node.
 
+    Note that this sidecar requires `ssh` binary available on the requestor.
     Warning will be generated if tunnel exists prematurely.
     """
 
@@ -190,6 +191,7 @@ class SshPortTunnelSidecar(PortTunnelSidecar):
 class WebsocatPortTunnelSidecar(PortTunnelSidecar):
     """Sidecar that runs websocat tunnel from the local machine to the related node.
 
+    Note that this sidecar requires `websocat` binary available on the requestor.
     Warning will be generated if tunnel exists prematurely.
     """
 

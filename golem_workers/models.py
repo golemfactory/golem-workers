@@ -12,7 +12,7 @@ from typing_extensions import Annotated
 from golem.payload import PayloadSyntaxParser, Properties, Payload, GenericPayload, Constraints
 from golem.resources import ProposalId
 from golem.resources.proposal.data import ProposalState
-from pydantic import BaseModel, ConfigDict, Field, WithJsonSchema, RootModel
+from pydantic import BaseModel, ConfigDict, Field, WithJsonSchema, RootModel, model_validator
 
 from golem_workers.utils import import_from_dotted_path
 
@@ -89,6 +89,19 @@ class ImportableElement(RootModel):
             ),
         ],
     ]
+
+    @model_validator(mode="after")
+    def validate_importable_element(self):
+        try:
+            self.import_object()
+        except ImportError as e:
+            raise ValueError("Given dotted path is not importable!") from e
+
+        # TODO: deep inspection of arguments without calling imported_object
+        #  supported in pydantic by @validate_call, but in v1.10+ there is no easy way to run
+        #  validation only
+
+        return self
 
     def import_object(self) -> Tuple[Any, Sequence, Mapping]:
         if isinstance(self.root, str):

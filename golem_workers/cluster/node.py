@@ -7,7 +7,7 @@ from golem.resources import Activity, Network, BatchError
 from golem.utils.asyncio import create_task_with_logging, ensure_cancelled
 from golem.utils.logging import get_trace_id_name
 from golem_workers.cluster.manager_stack import ManagerStack
-from golem_workers.cluster.sidecars import Sidecar
+from golem_workers.sidecars import Sidecar
 from golem_workers.context import WorkContext
 from golem_workers.models import (
     NodeState,
@@ -152,7 +152,7 @@ class Node:
             for command in self._node_config.on_start_commands:
                 await self._run_command(command)
         except Exception:
-            logger.exception("Starting failed!")
+            logger.exception("Starting `%s` node failed!", self)
             self._state = NodeState.STOPPED
             # TODO: handle stop / state cleanup. State cleanup should be in stages to accommodate different stages
 
