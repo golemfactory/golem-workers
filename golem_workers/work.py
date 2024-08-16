@@ -19,13 +19,17 @@ logger = logging.getLogger(__name__)
 
 
 async def deploy_and_start_activity(
-    context: WorkContext, deploy_timeout_minutes: Optional[float] = 5
+    context: WorkContext, /, deploy_timeout_minutes: Optional[float] = 5
 ) -> None:
     """Deploy and start activity.
 
     Depending on image size and state of the image cache on the provider side, deploy step can take considerable amount of time.
-    Timeout can be provided to raise an exception after specific time.
+
+    Args:
+        context: Externally provided WorkContext object bound to the activity.
+        deploy_timeout_minutes: Amount of minutes after exception will be raised if deploy will be not completed.
     """
+
     if deploy_timeout_minutes:
         deploy_timeout_minutes = timedelta(minutes=deploy_timeout_minutes).total_seconds()
 
@@ -34,16 +38,26 @@ async def deploy_and_start_activity(
     await context.start()
 
 
-async def prepare_and_run_ssh_server(context: WorkContext, ssh_private_key_path: str) -> None:
+async def prepare_and_run_ssh_server(context: WorkContext, /, ssh_private_key_path: str) -> None:
     """Prepare and run SSH server on the provider.
 
-    Provided ssh private key must have correlating public key file with the `.pub` suffix at the same path.
-    If given path is not existing, ssh keys will be generated under given destination.
+    Note:
+        This work function requires `ssh-keygen` binary to be available on the requestor if given ssh key is not existing.
 
-    Note that this work function requires `ssh-keygen` binary to be available on the requestor if given ssh key is not existing.
-    Note that this work function requires activity to be previously deployed and started.
-    Note that this work function is compatible with VM-like runtimes and depends on `apt` and `service` binaries to be available in the image.
+    Note:
+        This work function requires activity to be previously deployed and started.
+
+    Note:
+        This work function is compatible with VM-like runtimes and depends on `apt` and `service` binaries to be available on the provider.
+
+    Args:
+        context: Externally provided WorkContext object bound to the activity.
+        ssh_private_key_path:
+            Path for SSH private key.
+            If provided it must have correlating public key file with the `.pub` suffix at the same path.
+            If given path is not existing, ssh keys will be generated under given destination.
     """
+
     if not len(context.default_deploy_args.get("net", [])):
         raise RuntimeError("Activity needs to be connected to any VPN network!")
 
@@ -87,11 +101,17 @@ async def prepare_and_run_ssh_server(context: WorkContext, ssh_private_key_path:
     )
 
 
-async def run_in_shell(context: WorkContext, *commands: Union[str, Sequence[str]]) -> None:
+async def run_in_shell(context: WorkContext, /, *commands: Union[str, Sequence[str]]) -> None:
     """Run shell commands.
 
-    Note that this work function requires activity to be previously deployed and started.
+    Note:
+        This work function requires activity to be previously deployed and started.
+
+    Args:
+        context: Externally provided WorkContext object bound to the activity.
+        *commands: Sequence of commands to run as a shell commands in a single string or list of raw exec arguments.
     """
+
     commands = [context.run(command, shell=True) for command in commands]
 
     try:
@@ -103,7 +123,11 @@ async def run_in_shell(context: WorkContext, *commands: Union[str, Sequence[str]
         raise
 
 
-async def stop_activity(context: WorkContext) -> None:
-    """Stop and destroy activity."""
+async def stop_activity(context: WorkContext, /) -> None:
+    """Stop and destroy activity.
+
+    Args:
+        context: Externally provided WorkContext object bound to the activity.
+    """
 
     await context.destroy()

@@ -5,8 +5,9 @@ from fastapi import FastAPI, Request, status
 from starlette.responses import JSONResponse
 
 from golem.utils.logging import DEFAULT_LOGGING
+from golem_workers import __version__
 from golem_workers.containers import Container
-from golem_workers.entrypoints.web.endpoints import router
+from golem_workers.entrypoints.web.endpoints import router, Tags
 from golem_workers.exceptions import GolemWorkersError, ObjectNotFound, ObjectAlreadyExists
 from golem_workers.settings import Settings
 
@@ -48,12 +49,27 @@ def create_application() -> FastAPI:
 
     app = FastAPI(
         title="Golem Workers Specification",
+        version=__version__,
         lifespan=lifespan,
         exception_handlers={
             GolemWorkersError: golem_workers_error_handler,
             ObjectNotFound: object_not_found_handler,
             ObjectAlreadyExists: object_already_exists_handler,
         },
+        openapi_tags=[
+            {
+                "name": Tags.CLUSTERS,
+                "description": "Endpoints related to Cluster management.",
+            },
+            {
+                "name": Tags.NODES,
+                "description": "Endpoints related to Node management.",
+            },
+            {
+                "name": Tags.MISC,
+                "description": "General endpoints for utilities.",
+            },
+        ],
     )
     app.include_router(router)
     app.state.container = container

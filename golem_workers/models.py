@@ -221,7 +221,7 @@ class NodeNetworkConfig(BaseModel):
 
 
 class MarketConfig(BaseModel):
-    """Definition of the way how prepare the demand and how to process found proposals."""
+    """Definition of the way how prepare the demand and how to process found Proposals."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -264,6 +264,8 @@ class NodeConfig(BaseModel):
 
 
 class PaymentConfig(BaseModel):
+    """Definition of the details related to payment methods."""
+
     model_config = ConfigDict(extra="forbid")
 
     address: Optional[str] = None
@@ -272,7 +274,7 @@ class PaymentConfig(BaseModel):
 
 
 class NodeOut(BaseModel):
-    """Data related to node."""
+    """Data related to Node."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -288,7 +290,7 @@ class NodeOut(BaseModel):
 
 
 class ClusterOut(BaseModel):
-    """Data related to cluster."""
+    """Data related to Cluster."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -306,7 +308,7 @@ class ClusterOut(BaseModel):
 
 
 class ProposalOut(BaseModel):
-    """Data related to proposal."""
+    """Data related to Proposal."""
 
     model_config = ConfigDict(extra="ignore", arbitrary_types_allowed=True)
 

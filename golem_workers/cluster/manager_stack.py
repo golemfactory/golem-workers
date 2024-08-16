@@ -13,9 +13,11 @@ from golem.managers import (
     DemandManager,
     ProposalManager,
     ProposalManagerPlugin,
+    MidAgreementPaymentsNegotiator,
 )
 from golem.managers.demand.single_use import SingleUseDemandManager
 from golem.node import GolemNode
+from golem.payload import ActivityInfo
 from golem.resources import Agreement, Allocation, Proposal
 from golem_workers.budgets import Budget
 from golem_workers.models import MarketConfig, ImportableElement
@@ -77,7 +79,10 @@ class ManagerStack:
         market_config: MarketConfig,
         budget: Budget,
     ) -> DemandManager:
-        payloads = list(await market_config.demand.prepare_payloads())
+        payloads = [
+            ActivityInfo(lifetime=timedelta(days=365)),
+        ]
+        payloads.extend(await market_config.demand.prepare_payloads())
         payloads.extend(await budget.get_payloads())
 
         return SingleUseDemandManager(
@@ -163,7 +168,10 @@ class ManagerStack:
                         scoring_debounce=timedelta(seconds=10),
                     ),
                     NegotiatingPlugin(
-                        proposal_negotiators=(PaymentPlatformNegotiator(),),
+                        proposal_negotiators=(
+                            PaymentPlatformNegotiator(),
+                            MidAgreementPaymentsNegotiator(),
+                        ),
                     ),
                     *(await budget.get_post_negotiation_plugins()),
                 ),

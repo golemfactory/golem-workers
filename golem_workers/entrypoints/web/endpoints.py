@@ -3,7 +3,7 @@ from fastapi import Request, status, APIRouter, Body
 from pydantic import BaseModel
 from typing_extensions import Annotated
 
-from golem_workers import commands
+from golem_workers import commands, __version__
 
 
 class HTTPGenericError(BaseModel):
@@ -11,9 +11,9 @@ class HTTPGenericError(BaseModel):
 
 
 class Tags(Enum):
-    PROPOSALS = "proposals"
     CLUSTERS = "clusters"
     NODES = "nodes"
+    MISC = "misc"
 
 
 responses = {
@@ -31,9 +31,17 @@ already_exists_responses = {
 router = APIRouter()
 
 
+@router.get("/", tags=[Tags.MISC], description="Returns golem-workers status and version.")
+async def index():
+    return {
+        "name": "golem-workers",
+        "version": __version__,
+    }
+
+
 @router.post(
     "/get-proposals",
-    tags=[Tags.PROPOSALS],
+    tags=[Tags.MISC],
     responses=responses,
     description=commands.GetProposalsCommand.__doc__,
 )

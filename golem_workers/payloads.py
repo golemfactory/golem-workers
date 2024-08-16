@@ -79,7 +79,28 @@ class MaxCpuThreadsPayload(Payload):
 class ClusterNodePayload(Payload):
     """General payload for VM-like runtimes.
 
-    It can abstract away golem repository image resolution and preparation of the manifest if outbound urls are used.
+    It can abstract away Golem Repository image resolution and preparation of the manifest if outbound URLs are used.
+
+    Attributes:
+        image_hash:
+            Image hash to be used to resolve full image URL.
+            Note:
+                This field is mutually exclusive with `image_tag`.
+        image_tag:
+            Image tag to be used to resolve full image URL.
+            Note:
+                This field is mutually exclusive with `image_tag`.
+        capabilities: List of machine capabilities that providers needs to support.
+        outbound_urls:
+            List of domains (with explicit protocol) that provider needs support as outgoing network traffic.
+            If not empty, manifest will be generated and `manifest-support` capability will be added to the demand.
+        min_mem_gib: Minimal amount of RAM that provider needs to support.
+        min_cpu_threads: Minimal amount of CPUs that provider needs to support.
+        min_storage_gib: Minimal amount of disk storage that provider needs to support.
+        max_cpu_threads: Maximum amount of CPUs that provider needs to support.
+        runtime: Provider runtime name identifier
+        registry_stats: Tells Golem Registry to include or not requests for this payload to its usage stats.
+        subnet_tag: Tag for soft-separation of proposals.
     """
 
     image_hash: Optional[str] = None

@@ -2,13 +2,15 @@ import asyncio
 import logging
 from abc import ABC, abstractmethod
 from asyncio.subprocess import Process
-from typing import TYPE_CHECKING, Optional, Sequence
+from datetime import timedelta
+from typing import TYPE_CHECKING, Optional, Sequence, Callable
 from yarl import URL
 
 from golem.node import GolemNode
 from golem.utils.asyncio import create_task_with_logging, ensure_cancelled
+from golem.utils.asyncio.tasks import resolve_maybe_awaitable
 from golem.utils.logging import get_trace_id_name
-
+from golem.utils.typing import MaybeAwaitable
 from golem_workers.utils import run_subprocess, get_ssh_proxy_command, get_connection_uri
 
 if TYPE_CHECKING:
@@ -38,6 +40,107 @@ class Sidecar(ABC):
     async def is_running(self) -> bool:
         """Check if the sidecar is running."""
         ...
+
+
+class MonitorClusterNodeSidecar(Sidecar, ABC):
+    """Base class for companion business logic that monitor the state of the related node."""
+
+    name = "<unnamed>"
+
+    def __init__(
+        self,
+        golem_node: GolemNode,
+        node: "Node",
+        *,
+        on_monitor_failed_func: Callable[["MonitorClusterNodeSidecar"], MaybeAwaitable[None]],
+    ):
+        super().__init__(golem_node, node)
+
+        self._on_monitor_check_failed_func = on_monitor_failed_func
+
+        self._monitor_task: Optional[asyncio.Task] = None
+
+    def __str__(self) -> str:
+        return f"{self.name} monitor"
+
+    @abstractmethod
+    async def _monitor(self) -> None: ...
+
+    async def start(self) -> None:
+        """Start the sidecar and its internal state."""
+
+        if self.is_running():
+            logger.info(f"Not starting `%s` node {self}, as it's already running", self._node)
+            return
+
+        logger.info(f"Starting `%s` node {self}...", self._node)
+
+        self._monitor_task = create_task_with_logging(
+            self._monitor(), trace_id=get_trace_id_name(self, self._get_monitor_task_name())
+        )
+
+        logger.info(f"Starting `%s` node {self} done", self._node)
+
+    async def stop(self) -> None:
+        """Stop the sidecar and cleanup its internal state."""
+
+        if not self.is_running():
+            logger.info(f"Not stopping `%s` node {self}, as it's already stopped", self._node)
+            return
+
+        logger.info(f"Stopping `%s` node {self}...", self._node)
+
+        await ensure_cancelled(self._monitor_task)
+        self._monitor_task = None
+
+        logger.info(f"Stopping `%s` node {self} done", self._node)
+
+    def is_running(self) -> bool:
+        """Check if the sidecar is running."""
+
+        return self._monitor_task and not self._monitor_task.done()
+
+    def _handle_monitor_check_failure(self) -> None:
+        logger.debug(f"`%s` node {self} check failed, monitor will stop", self._node)
+
+        create_task_with_logging(
+            resolve_maybe_awaitable(self._on_monitor_check_failed_func(self)),
+            trace_id=get_trace_id_name(self, "on-monitor-check-failed"),
+        )
+
+    def _get_monitor_task_name(self) -> str:
+        return "{}-{}".format(self._node, str(self).replace(" ", "-"))
+
+
+class ActivityStateMonitorClusterNodeSidecar(MonitorClusterNodeSidecar):
+    """Sidecar that monitor the activity state of the related node.
+
+    External callback will be called if the activity enters non-working state.
+    """
+
+    name = "activity"
+
+    def __init__(
+        self, golem_node: GolemNode, node: "Node", *, check_interval: timedelta, **kwargs
+    ) -> None:
+        super().__init__(golem_node, node, **kwargs)
+
+        self._check_interval = check_interval
+
+    async def _monitor(self) -> None:
+        while True:
+            activity_state = await self._node.activity.get_state()
+
+            if (
+                "Terminated" in activity_state.state
+                or "Unresponsive" in activity_state.state
+                or activity_state.error_message is not None
+            ):
+                self._handle_monitor_check_failure()
+
+                return
+
+            await asyncio.sleep(self._check_interval.total_seconds())
 
 
 class PortTunnelSidecar(Sidecar, ABC):

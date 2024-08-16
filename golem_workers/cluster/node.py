@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import asyncio
 import logging
 from typing import List, Optional, Callable, Awaitable, Mapping, MutableMapping, Tuple
@@ -7,7 +9,11 @@ from golem.resources import Activity, Network, BatchError
 from golem.utils.asyncio import create_task_with_logging, ensure_cancelled
 from golem.utils.logging import get_trace_id_name
 from golem_workers.cluster.manager_stack import ManagerStack
-from golem_workers.sidecars import Sidecar
+from golem_workers.sidecars import (
+    Sidecar,
+    MonitorClusterNodeSidecar,
+    ActivityStateMonitorClusterNodeSidecar,
+)
 from golem_workers.context import WorkContext
 from golem_workers.models import (
     NodeState,
@@ -18,6 +24,8 @@ from golem_workers.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+ACTIVITY_MONITOR_CHECK_INTERVAL = timedelta(minutes=1)
 
 
 class Node:
@@ -66,8 +74,20 @@ class Node:
 
         return self._state
 
+    @property
+    def activity(self) -> Optional[Activity]:
+        """Read-only node activity."""
+        return self._activity
+
     def _prepare_sidecars(self) -> List[Sidecar]:
-        sidecars = []
+        sidecars = [
+            ActivityStateMonitorClusterNodeSidecar(
+                self._golem_node,
+                self,
+                on_monitor_failed_func=self._on_activity_not_accessible,
+                check_interval=ACTIVITY_MONITOR_CHECK_INTERVAL,
+            )
+        ]
 
         for sidecar in self._node_config.sidecars:
             sidecar_class, sidecar_args, sidecar_kwargs = sidecar.import_object()
@@ -254,3 +274,10 @@ class Node:
         node_ip = self._network_ips.get(network_name)
 
         return network, node_ip
+
+    async def _on_activity_not_accessible(self, monitor: MonitorClusterNodeSidecar):
+        logger.warning(
+            "Terminating node `%s` %s is no longer accessible", self.node_id, monitor.name
+        )
+
+        await self.stop()
