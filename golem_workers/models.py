@@ -132,6 +132,56 @@ ImportableContext = ImportableElement
 ImportableWorkFunc = ImportableElement
 
 
+class PaymentConfig(BaseModel):
+    """Definition of the details related to payment methods."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    address: Optional[str] = Field(
+        default=None,
+        description="Explicit wallet address to be used, instead of chosen automatically.",
+    )
+    network: str = Field(
+        default="holesky",
+        description="Explicit payment network to be used, instead of chosen automatically.",
+    )
+    driver: str = Field(
+        default="erc20",
+        description="Explicit payment driver to be used, instead of chosen automatically.",
+    )
+
+
+class AllocationConfig(BaseModel):
+    """Definition of the details related to Allocation.
+
+    Using this configuration tells Budget to use existing Allocation or create new allocation with given limit.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: Optional[str] = Field(
+        default=None,
+        description="Explicit allocation id to be used. Can't be defined with `amount` field.",
+    )
+    amount: Optional[float] = Field(
+        default=None,
+        description="Amount used for new allocation. Can't be defined with `id` field.",
+    )
+
+    @model_validator(mode="after")
+    def validate_id_and_amount_exclusiveness(self):
+        if self.id is None and self.amount is None:
+            raise ValueError("One of `id` or `amount` fields must be defined!")
+
+        if self.id is not None and self.amount is not None:
+            raise ValueError("Only one of `id` or `amount` fields can be defined!")
+
+        return self
+
+    def is_external_allocation(self) -> bool:
+        return bool(self.id)
+
+
 class BudgetScope(Enum):
     # GLOBAL = "global"
     CLUSTER = "cluster"
@@ -140,7 +190,22 @@ class BudgetScope(Enum):
 
 
 class BudgetConfig(BaseModel):
-    budget: ImportableBudget
+    budget: ImportableBudget = Field(
+        description="""Importable Budget class.
+        
+        Built-in budgets:
+          * `golem_workers.budgets.LinearModelBudget`
+          * `golem_workers.budgets.AveragePerCpuUsageLinearModelBudget`
+        """
+    )
+    payment_config: Optional[PaymentConfig] = Field(
+        default=None,
+        description="Payment configuration that will be applied to this budget. Will replace `payment_config` from cluster if defined.",
+    )
+    allocation_config: Optional[AllocationConfig] = Field(
+        default=None,
+        description="Allocation configuration that will be applied to this budget. Will replace `allocation_config` from cluster if defined.",
+    )
     scope: BudgetScope = BudgetScope.NODE
 
 
@@ -151,7 +216,11 @@ class MarketConfigDemand(BaseModel):
 
     payloads: List[ImportablePayload] = Field(
         default_factory=list,
-        description="List of importable payloads to be added to the demand exactly in given order.",
+        description="""List of importable payloads to be added to the demand exactly in given order.
+        
+        Built-in payloads:
+          * `golem_workers.payloads.ClusterNodePayload`
+        """,
     )
     properties: Mapping[str, Any] = Field(
         default_factory=dict,
@@ -194,7 +263,7 @@ class NetworkConfig(BaseModel):
 
     ip: Annotated[
         str,
-        Field(description="IP address of the network. May contain netmask, e.g. `192.168.0.0/24`."),
+        Field(description="IP address of the network. May contain netmask, e.g. `192.168.0.0/16`."),
     ]
     mask: Optional[str] = Field(
         default=None,
@@ -244,15 +313,35 @@ class NodeConfig(BaseModel):
     market_config: MarketConfig = Field(default_factory=MarketConfig)
     sidecars: List[ImportableSidecar] = Field(
         default_factory=list,
-        description="List of importable Sidecars that will be started with the node.",
+        description="""List of importable Sidecars that will be started with the node.
+        
+        Built-in sidecars:
+          * `golem_workers.sidecars.ActivityStateMonitorClusterNodeSidecar` (added automatically to all nodes)
+          * `golem_workers.sidecars.SshPortTunnelSidecar`
+          * `golem_workers.sidecars.WebsocatPortTunnelSidecar`
+        """,
     )
     on_start_commands: List[ImportableWorkFunc] = Field(
         default_factory=list,
-        description="List of importable work functions to run when activity is about to be started.",
+        description="""List of importable work functions to run when activity is about to be started.
+        
+        Built-in commands:
+          * `golem_workers.work.deploy_and_start_activity`
+          * `golem_workers.work.prepare_and_run_ssh_server`
+          * `golem_workers.work.run_in_shell`
+          * `golem_workers.work.stop_activity`
+        """,
     )
     on_stop_commands: List[ImportableWorkFunc] = Field(
         default_factory=list,
-        description="List of importable work functions to run when activity is about to be stopped.",
+        description="""List of importable work functions to run when activity is about to be stopped.
+        
+        Built-in commands:
+          * `golem_workers.work.deploy_and_start_activity`
+          * `golem_workers.work.prepare_and_run_ssh_server`
+          * `golem_workers.work.run_in_shell`
+          * `golem_workers.work.stop_activity`
+        """,
     )
 
     def combine(self, other: "NodeConfig") -> "NodeConfig":
@@ -261,16 +350,6 @@ class NodeConfig(BaseModel):
         dpath.merge(result, other.dict())
 
         return NodeConfig(**result)
-
-
-class PaymentConfig(BaseModel):
-    """Definition of the details related to payment methods."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    address: Optional[str] = None
-    network: str = "holesky"
-    driver: str = "erc20"
 
 
 class NodeOut(BaseModel):

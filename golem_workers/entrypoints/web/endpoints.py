@@ -159,7 +159,7 @@ async def create_cluster(
                         },
                         "network_types": {
                             "default": {
-                                "ip": "192.168.0.1/16",
+                                "ip": "192.168.0.0/16",
                             },
                         },
                         "node_types": {
@@ -180,9 +180,6 @@ async def create_cluster(
                                         },
                                     ],
                                 },
-                                "on_stop_commands": [
-                                    "golem_workers.work.stop_activity",
-                                ],
                             },
                         },
                     },
@@ -332,6 +329,12 @@ async def create_node(
                                                 "runtime": "vm-nvidia",
                                                 "image_tag": "scalepointai/automatic1111:4",
                                                 "subnet_tag": "gpu-test",
+                                                "outbound_urls": [
+                                                    "https://huggingface.co",
+                                                    "https://cdn-lfs.huggingface.co",
+                                                    "https://cdn-lfs-us-1.huggingface.co",
+                                                    "https://gpu-provider.dev.golem.network",
+                                                ],
                                             },
                                         },
                                     ],
@@ -350,7 +353,7 @@ async def create_node(
                                 },
                                 {
                                     "golem_workers.work.run_in_shell": [
-                                        "cd /usr/src/app/ && ./start.sh --model_url https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.safetensors > /usr/src/app/output/log 2>&1 &",
+                                        "cd /usr/src/app/ && ./start.sh --model_url https://gpu-provider.dev.golem.network/models/v1-5-pruned-emaonly.safetensors > /usr/src/app/output/log 2>&1 &",
                                     ],
                                 },
                             ],

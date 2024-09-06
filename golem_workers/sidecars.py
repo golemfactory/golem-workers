@@ -20,7 +20,12 @@ logger = logging.getLogger(__name__)
 
 
 class Sidecar(ABC):
-    """Base class for companion business logic that runs in relation to the node."""
+    """Base class for companion business logic that runs in relation to the node.
+
+    Args:
+        golem_node: Externally provided GolemNode object.
+        node: Externally provided Node object related to this sidecar.
+    """
 
     def __init__(self, golem_node: GolemNode, node: "Node") -> None:
         self._golem_node = golem_node
@@ -43,7 +48,15 @@ class Sidecar(ABC):
 
 
 class MonitorClusterNodeSidecar(Sidecar, ABC):
-    """Base class for companion business logic that monitor the state of the related node."""
+    """Base class for companion business logic that monitor the state of the related node.
+
+    Args:
+        golem_node: Externally provided GolemNode object
+        node: Externally provided Node object related to this sidecar
+
+    Keyword Args:
+        on_monitor_failed_func: Sync or async callable that will be called in case of monitor check failure.
+    """
 
     name = "<unnamed>"
 
@@ -116,6 +129,14 @@ class ActivityStateMonitorClusterNodeSidecar(MonitorClusterNodeSidecar):
     """Sidecar that monitor the activity state of the related node.
 
     External callback will be called if the activity enters non-working state.
+
+    Args:
+        golem_node: Externally provided GolemNode object
+        node: Externally provided Node object related to this sidecar
+
+    Keyword Args:
+        check_interval: Interval of how frequently pull activity state to check its status.
+        on_monitor_failed_func: Sync or async callable that will be called in case of monitor check failure.
     """
 
     name = "activity"
@@ -147,6 +168,15 @@ class PortTunnelSidecar(Sidecar, ABC):
     """Sidecar that runs a generic tunnel between the related node and the local machine.
 
     Warning will be generated if tunnel exists prematurely.
+
+    Args:
+        golem_node: Externally provided GolemNode object
+        node: Externally provided Node object related to this sidecar
+
+    Keyword Args:
+        network_name: Reference to the network from node configuration to be used in the tunnel.
+        local_port: Port that will be used at the requestor side.
+        remote_port: Port that will be used at the provider side.
     """
 
     def __init__(
@@ -243,10 +273,26 @@ class PortTunnelSidecar(Sidecar, ABC):
 
 
 class SshPortTunnelSidecar(PortTunnelSidecar):
-    """Sidecar that runs ssh tunnel from the local machine the related node.
+    """Sidecar that runs ssh tunnel between the requestor local machine and related node on the provider.
 
-    Note that this sidecar requires `ssh` binary available on the requestor.
+    Note that this sidecar requires `ssh` binary available on the requestor and running ssh server on the provider..
     Warning will be generated if tunnel exists prematurely.
+
+    Args:
+        golem_node: Externally provided GolemNode object
+        node: Externally provided Node object related to this sidecar
+
+    Keyword Args:
+        ssh_private_key_path: Path to existing private ssh key file.
+        reverse:
+            If True, the sidecar will tunnel network traffic from the provider to the requestor.
+            Port provided by `remote_port` argument will be acquired by the tunnel on the provider to listen for traffic, hence it must be not used.
+
+            If False, the sidecar will tunnel network traffic from the requestor to the provider.
+            Port provided by `local_port` argument will be acquired by the tunnel on the requestor to listen for traffic, hence it must be not used.
+        network_name: Reference to the network from node configuration to be used in the tunnel.
+        local_port: Port that will be used at the requestor side.
+        remote_port: Port that will be used at the provider side.
     """
 
     def __init__(
@@ -296,6 +342,17 @@ class WebsocatPortTunnelSidecar(PortTunnelSidecar):
 
     Note that this sidecar requires `websocat` binary available on the requestor.
     Warning will be generated if tunnel exists prematurely.
+
+    Args:
+        golem_node: Externally provided GolemNode object
+        node: Externally provided Node object related to this sidecar
+
+    Keyword Args:
+        network_name: Reference to the network from node configuration to be used in the tunnel.
+        local_port:
+            Port that will be used at the requestor side.
+            This port will be acquired by the tunnel, hence it must be not used.
+        remote_port: Port that will be used at the provider side.
     """
 
     def _get_subprocess_args(self) -> Sequence:

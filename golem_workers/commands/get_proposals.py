@@ -9,7 +9,7 @@ from golem.managers import (
     ProposalScoringMixin,
 )
 from golem.node import GolemNode
-from golem.resources import Allocation, Proposal
+from golem.resources import Proposal
 from golem_workers.cluster import ManagerStack
 from golem_workers.commands.base import Command, CommandRequest, CommandResponse
 from golem_workers.models import MarketConfig, ProposalOut, PaymentConfig, ImportableBudget
@@ -59,17 +59,16 @@ class GetProposalsCommand(Command[GetProposalsRequest, GetProposalsResponse]):
         )
 
         temp_allocation = await temp_payment_manager.get_allocation()
-
-        async def get_allocation() -> Allocation:
-            return temp_allocation
+        allow_allocation_amendment = False
 
         budget_class, budget_args, budget_kwargs = request.budget.import_object()
-        budget = budget_class(*budget_args, **budget_kwargs)
+        budget = budget_class(
+            temp_allocation, allow_allocation_amendment, *budget_args, **budget_kwargs
+        )
 
         # TODO: Use offline market scan instead of demand
         simple_manager_stack = await ManagerStack.create_basic_stack(
             self._golem_node,
-            get_allocation,
             request.market_config,
             budget,
         )

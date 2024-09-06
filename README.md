@@ -39,7 +39,7 @@ To run docker example, checkout the repository and go to `examples/docker` direc
 
 2. Start `golem-node` instance. This will occupy your terminal session, so it's best to do it in separate session.
    ```shell
-   yagna service start
+   yagna service run
    ```
 
 3. Prepare some funds for Golem's free test network. 

@@ -1,6 +1,6 @@
 import logging
 from datetime import timedelta
-from typing import Optional, TypeVar, Callable, Awaitable, Sequence, Any
+from typing import Optional, TypeVar, Sequence, Any
 
 from golem.managers import (
     AgreementManager,
@@ -18,7 +18,7 @@ from golem.managers import (
 from golem.managers.demand.single_use import SingleUseDemandManager
 from golem.node import GolemNode
 from golem.payload import ActivityInfo
-from golem.resources import Agreement, Allocation, Proposal
+from golem.resources import Agreement, Proposal
 from golem_workers.budgets import Budget
 from golem_workers.models import MarketConfig, ImportableElement
 
@@ -75,7 +75,6 @@ class ManagerStack:
     async def _prepare_demand_manager(
         cls,
         golem_node: GolemNode,
-        get_allocation: Callable[[], Awaitable[Allocation]],
         market_config: MarketConfig,
         budget: Budget,
     ) -> DemandManager:
@@ -87,7 +86,7 @@ class ManagerStack:
 
         return SingleUseDemandManager(
             golem_node,
-            get_allocation,
+            budget.get_allocation,
             payloads,
         )
 
@@ -115,14 +114,13 @@ class ManagerStack:
     async def create_basic_stack(
         cls,
         golem_node: GolemNode,
-        get_allocation: Callable[[], Awaitable[Allocation]],
         market_config: MarketConfig,
         budget: Budget,
     ) -> "ManagerStack":
         stack = cls()
 
         demand_manager = stack.add_manager(
-            await cls._prepare_demand_manager(golem_node, get_allocation, market_config, budget)
+            await cls._prepare_demand_manager(golem_node, market_config, budget)
         )
 
         plugins = await cls._prepare_pre_negotiation_plugins(budget, market_config)
@@ -141,14 +139,13 @@ class ManagerStack:
     async def create_agreement_stack(
         cls,
         golem_node: GolemNode,
-        get_allocation: Callable[[], Awaitable[Allocation]],
         market_config: MarketConfig,
         budget: Budget,
     ) -> "ManagerStack":
         stack = cls()
 
         demand_manager = stack.add_manager(
-            await cls._prepare_demand_manager(golem_node, get_allocation, market_config, budget)
+            await cls._prepare_demand_manager(golem_node, market_config, budget)
         )
 
         proposal_manager = stack.add_manager(

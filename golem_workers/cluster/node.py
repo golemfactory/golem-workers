@@ -2,12 +2,13 @@ from datetime import timedelta
 
 import asyncio
 import logging
-from typing import List, Optional, Callable, Awaitable, Mapping, MutableMapping, Tuple
+from typing import List, Optional, Mapping, MutableMapping, Tuple
 
 from golem.node import GolemNode
 from golem.resources import Activity, Network, BatchError
 from golem.utils.asyncio import create_task_with_logging, ensure_cancelled
 from golem.utils.logging import get_trace_id_name
+from golem_workers.budgets import Budget
 from golem_workers.cluster.manager_stack import ManagerStack
 from golem_workers.sidecars import (
     Sidecar,
@@ -19,7 +20,6 @@ from golem_workers.models import (
     NodeState,
     ImportableWorkFunc,
     NodeConfig,
-    MarketConfig,
     NodeNetworkConfig,
 )
 
@@ -37,19 +37,17 @@ class Node:
         node_id: str,
         networks_config: Mapping[str, NodeNetworkConfig],
         node_config: NodeConfig,
-        budget_type: str,
-        node_type: str,
+        budget: Budget,
+        manager_stack: ManagerStack,
         networks: Mapping[str, Network],
-        get_manager_stack: Callable[[MarketConfig, str, str, str], Awaitable[ManagerStack]],
     ) -> None:
         self._golem_node = golem_node
         self._node_id = node_id
         self._networks_config = networks_config
         self._node_config = node_config
-        self._budget_type = budget_type
-        self._node_type = node_type
+        self._budget = budget
+        self._manager_stack = manager_stack
         self._networks = networks
-        self._get_manager_stack = get_manager_stack
 
         self._sidecars = self._prepare_sidecars()
 
@@ -117,12 +115,10 @@ class Node:
 
         self._state = NodeState.PROVISIONING
 
-        manager_stack = await self._get_manager_stack(
-            self._node_config.market_config, self._budget_type, self._node_type, self._node_id
-        )
-
-        agreement = await manager_stack.get_agreement()
+        agreement = await self._manager_stack.get_agreement()
         agreement_data = await agreement.get_agreement_data()
+
+        await self._budget.register_agreement(agreement)
 
         activity = await agreement.create_activity()
 
@@ -211,11 +207,7 @@ class Node:
             await self._run_command(command)
 
         if not self._activity.destroyed:
-            logger.warning("Activity should be destroyed in `on_stop_commands`!")
-
             await self._stop_activity(self._activity)
-
-        await self._activity.agreement.terminate()
 
         self._activity = None
 

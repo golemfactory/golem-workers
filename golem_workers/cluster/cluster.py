@@ -4,7 +4,7 @@ import logging
 from typing import Dict, Mapping, Optional
 
 from golem.node import GolemNode
-from golem.resources import Network
+from golem.resources import Network, Allocation
 from golem.utils.asyncio import create_task_with_logging
 from golem.utils.logging import get_trace_id_name
 from golem_workers.budgets import Budget
@@ -21,6 +21,7 @@ from golem_workers.models import (
     MarketConfig,
     NetworkConfig,
     NodeNetworkConfig,
+    AllocationConfig,
 )
 
 logger = logging.getLogger(__name__)
@@ -35,6 +36,7 @@ class Cluster:
         cluster_id: str,
         budget_types: Mapping[str, BudgetConfig],  # TODO: make budget optional
         payment_config: Optional[PaymentConfig] = None,
+        allocation_config: Optional[AllocationConfig] = None,
         network_types: Optional[Mapping[str, NetworkConfig]] = None,
         node_types: Optional[Mapping[str, NodeConfig]] = None,
     ) -> None:
@@ -43,21 +45,17 @@ class Cluster:
         self._budget_types = budget_types
 
         self._payment_config = payment_config or PaymentConfig()
+        self._allocation_config = allocation_config
         self._network_types = network_types or {}
         self._node_types = node_types or {}
 
+        self._allocation: Optional[Allocation] = None
         self._manager_stacks: Dict[str, ManagerStack] = {}
         self._budgets: Dict[str, Budget] = {}
         self._networks: Dict[str, Network] = {}
         self._nodes: Dict[str, Node] = {}
         self._nodes_id_counter = 0
         self._start_task: Optional[asyncio.Task] = None
-        self.payment_manager = DriverListAllocationPaymentManager(
-            self._golem_node,
-            budget=5,  # FIXME: use config / generic budget control,
-            network=payment_config.network,
-            driver=payment_config.driver,
-        )
 
         self._state: ClusterState = ClusterState.CREATED
         self._extra = {}
@@ -117,7 +115,10 @@ class Cluster:
 
         logger.info("Starting `%s` cluster...", self)
 
-        await self.payment_manager.start()
+        if self._allocation_config:
+            self._allocation = await self._get_or_create_allocation(
+                self._allocation_config, self._payment_config
+            )
 
         for network_name, network_config in self._network_types.items():
             self._networks[network_name] = await self._golem_node.create_network(
@@ -149,7 +150,14 @@ class Cluster:
         )
         await asyncio.gather(*[budget.stop() for budget in self._budgets.values()])
 
-        await self.payment_manager.stop()
+        if (
+            self._allocation_config
+            and not self._allocation_config.is_external_allocation()
+            and self._allocation
+        ):
+            await self._allocation.release()
+
+        self._allocation = None
 
         await asyncio.gather(*[network.remove() for network in self._networks.values()])
 
@@ -175,24 +183,42 @@ class Cluster:
     def _get_network(self, network_name: str) -> Network:
         return self._networks[network_name]
 
+    async def _get_or_create_allocation(
+        self, allocation_config: AllocationConfig, payment_config: PaymentConfig
+    ) -> Optional[Allocation]:
+        if allocation_config.id:
+            api = Allocation._get_api(self._golem_node)
+            try:
+                data = await api.get_allocation(allocation_config.id)
+            except ValueError:
+                raise RuntimeError(f"Allocation with id `{allocation_config.id}` does not exists!")
+            else:
+                return Allocation(self._golem_node, data.allocation_id, data)
+        else:
+            payment_manager = DriverListAllocationPaymentManager(
+                self._golem_node,
+                budget=float(allocation_config.amount),
+                network=payment_config.network,
+                driver=payment_config.driver,
+            )
+
+            return await payment_manager.get_allocation()
+
     async def _get_or_create_manager_stack(
-        self, market_config: MarketConfig, budget_type: str, node_type: str, node_id: str
+        self, market_config: MarketConfig, budget_key: str
     ) -> ManagerStack:
-        budget_key = self._get_budget_key(budget_type, node_type, node_id)
+        # TODO: Lock
         manager_stack_key = self._get_manager_stack_key(market_config, budget_key)
 
         manager_stack = self._manager_stacks.get(manager_stack_key)
 
         if not manager_stack:
-            budget = self._get_or_create_budget(budget_type, node_type, node_id)
-
             self._manager_stacks[manager_stack_key] = (
                 manager_stack
             ) = await ManagerStack.create_agreement_stack(
                 self._golem_node,
-                self.payment_manager.get_allocation,
                 market_config,
-                budget,
+                self._budgets[budget_key],
             )
 
             await manager_stack.start()
@@ -203,15 +229,34 @@ class Cluster:
         hashed_stack = hashlib.md5(market_config.json().encode()).hexdigest()
         return f"{hashed_stack}-{budget_key}"
 
-    def _get_or_create_budget(self, budget_type: str, node_type: str, node_id: str) -> Budget:
-        budget_key = self._get_budget_key(budget_type, node_type, node_id)
-
+    async def _get_or_create_budget(self, budget_type: str, budget_key: str) -> Budget:
+        # TODO: lock
         budget = self._budgets.get(budget_key)
 
         if not budget:
-            budget_class, args, kwargs = self._budget_types[budget_type].budget.import_object()
+            budget_type = self._budget_types[budget_type]
+            budget_class, args, kwargs = budget_type.budget.import_object()
 
-            self._budgets[budget_key] = budget = budget_class(*args, **kwargs)
+            if budget_type.allocation_config:  # Budget allocation config takes precedence
+                allocation = await self._get_or_create_allocation(
+                    budget_type.allocation_config,
+                    budget_type.payment_config or self._payment_config,
+                )
+                allow_allocation_amendment = False
+            elif self._allocation:  # Use cluster global allocation
+                allocation = self._allocation
+                allow_allocation_amendment = False
+            else:  # create budget exclusive allocation
+                allocation = await self._get_or_create_allocation(
+                    AllocationConfig(amount=0), budget_type.payment_config or self._payment_config
+                )
+                allow_allocation_amendment = True
+
+            self._budgets[budget_key] = budget = budget_class(
+                allocation, allow_allocation_amendment, *args, **kwargs
+            )
+
+            await budget.start()
 
         return budget
 
@@ -219,13 +264,13 @@ class Cluster:
         scope = self._budget_types[budget_type].scope
 
         if scope is BudgetScope.CLUSTER:
-            return budget_type
+            return f"{budget_type}-cluster"
         elif scope is BudgetScope.NODE_TYPE:
-            return f"{budget_type}-{node_type}"
+            return f"{budget_type}-node_type-{node_type}"
         else:
-            return f"{budget_type}-{node_type}-{node_id}"
+            return f"{budget_type}-node_id-{node_id}"
 
-    def create_node(
+    async def create_node(
         self,
         node_config: NodeConfig,
         node_type: str,
@@ -233,6 +278,13 @@ class Cluster:
         node_networks: Mapping[str, NodeNetworkConfig],
     ) -> Node:
         node_id = self._get_new_node_id()
+
+        budget_key = self._get_budget_key(budget_type, node_type, node_id)
+        budget = await self._get_or_create_budget(budget_type, budget_key)
+
+        manager_stack = await self._get_or_create_manager_stack(
+            node_config.market_config, budget_key
+        )
 
         networks = {
             network_name: self._networks[network_name] for network_name in node_networks.keys()
@@ -243,10 +295,9 @@ class Cluster:
             node_id=node_id,
             networks_config=node_networks,
             node_config=node_config,
-            budget_type=budget_type,
-            node_type=node_type,
+            budget=budget,
+            manager_stack=manager_stack,
             networks=networks,
-            get_manager_stack=self._get_or_create_manager_stack,
         )
 
         node.schedule_provision()

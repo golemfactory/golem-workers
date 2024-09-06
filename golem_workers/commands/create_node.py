@@ -15,7 +15,10 @@ logger = logging.getLogger(__name__)
 class CreateNodeRequest(CommandRequest):
     cluster_id: str = "default"
     budget_type: str = "default"
-    node_networks: Mapping[str, NodeNetworkConfig] = Field(default_factory=dict)
+    node_networks: Mapping[str, NodeNetworkConfig] = Field(
+        default_factory=dict,
+        description="",
+    )
     node_type: Optional[str] = "default"
     node_config: Optional[NodeConfig] = None
 
@@ -82,7 +85,7 @@ class CreateNodeCommand(Command[CreateNodeRequest, CreateNodeResponse]):
         # TODO: Validate node config
 
         # TODO: Use ClusterRepository for creation scheduling
-        node = cluster.create_node(
+        node = await cluster.create_node(
             node_config, request.node_type, request.budget_type, request.node_networks
         )
 
