@@ -71,7 +71,6 @@ async def get_proposals(
                                     {
                                         "golem_workers.payloads.ClusterNodePayload": {
                                             "runtime": "vm-nvidia",
-                                            "subnet_tag": "gpu-test",
                                             "min_mem_gib": 16,
                                             "min_storage_gib": 20,
                                             "outbound_urls": [
@@ -100,7 +99,6 @@ async def get_proposals(
                                     {
                                         "golem_workers.payloads.ClusterNodePayload": {
                                             "runtime": "vm-nvidia",
-                                            "subnet_tag": "gpu-test",
                                             "min_mem_gib": 16,
                                             "min_storage_gib": 20,
                                             "outbound_urls": [
@@ -328,7 +326,6 @@ async def create_node(
                                             "golem_workers.payloads.ClusterNodePayload": {
                                                 "runtime": "vm-nvidia",
                                                 "image_tag": "scalepointai/automatic1111:4",
-                                                "subnet_tag": "gpu-test",
                                                 "outbound_urls": [
                                                     "https://huggingface.co",
                                                     "https://cdn-lfs.huggingface.co",

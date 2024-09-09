@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "golem-workers"
-version = "0.3.0"
+version = "0.3.1"
 description = "Golem Workers is an API providing direct and high-level access to CPU and GPU resources on the Golem Network."
 authors = ["Golem Factory <contact@golem.network>"]
 readme = "README.md"
@@ -24,7 +24,7 @@ python = "^3.8.1"
 #golem-core = {path = "../golem-core-python", develop = true}
 #golem-core = {git = "https://github.com/golemfactory/golem-core-python.git", branch = "approxit/cluster-api"}
 golem-core = "^0.7.6"
-golem-node = "^0.15.0"
+golem-node = "^0.16.0"
 
 fastapi = "^0.111.0"
 pydantic-settings = "^2.3.1"
