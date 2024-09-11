@@ -23,6 +23,7 @@ services:
     ports:
       - "8000:8000"
       - "8080:8080"
+      - "8081:8081"
 
 volumes:
   yagna-data:
