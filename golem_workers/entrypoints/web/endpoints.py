@@ -74,9 +74,6 @@ async def get_proposals(
                                             "min_mem_gib": 16,
                                             "min_storage_gib": 20,
                                             "outbound_urls": [
-                                                "https://huggingface.co",
-                                                "https://cdn-lfs.huggingface.co",
-                                                "https://cdn-lfs-us-1.huggingface.co",
                                                 "https://gpu-provider.dev.golem.network",
                                             ],
                                         },
@@ -102,9 +99,6 @@ async def get_proposals(
                                             "min_mem_gib": 16,
                                             "min_storage_gib": 20,
                                             "outbound_urls": [
-                                                "https://huggingface.co",
-                                                "https://cdn-lfs.huggingface.co",
-                                                "https://cdn-lfs-us-1.huggingface.co",
                                                 "https://gpu-provider.dev.golem.network",
                                             ],
                                         },
@@ -327,9 +321,6 @@ async def create_node(
                                                 "runtime": "vm-nvidia",
                                                 "image_tag": "scalepointai/automatic1111:4",
                                                 "outbound_urls": [
-                                                    "https://huggingface.co",
-                                                    "https://cdn-lfs.huggingface.co",
-                                                    "https://cdn-lfs-us-1.huggingface.co",
                                                     "https://gpu-provider.dev.golem.network",
                                                 ],
                                             },
@@ -368,6 +359,13 @@ async def create_node(
                                         "local_port": "8081",
                                         "remote_port": "8001",
                                     },
+                                },
+                                {
+                                    "golem_workers.sidecars.WebsocatPortTunnelSidecar": {
+                                        "network_name": "default",
+                                        "local_port": "2222",
+                                        "remote_port": "22"
+                                    } 
                                 },
                             ],
                         },
