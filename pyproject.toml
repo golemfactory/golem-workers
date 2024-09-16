@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "golem-workers"
-version = "0.3.1"
+version = "0.3.2a0"
 description = "Golem Workers is an API providing direct and high-level access to CPU and GPU resources on the Golem Network."
 authors = ["Golem Factory <contact@golem.network>"]
 readme = "README.md"

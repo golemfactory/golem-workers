@@ -74,9 +74,6 @@ async def get_proposals(
                                             "min_mem_gib": 16,
                                             "min_storage_gib": 20,
                                             "outbound_urls": [
-                                                "https://huggingface.co",
-                                                "https://cdn-lfs.huggingface.co",
-                                                "https://cdn-lfs-us-1.huggingface.co",
                                                 "https://gpu-provider.dev.golem.network",
                                             ],
                                         },
@@ -102,9 +99,6 @@ async def get_proposals(
                                             "min_mem_gib": 16,
                                             "min_storage_gib": 20,
                                             "outbound_urls": [
-                                                "https://huggingface.co",
-                                                "https://cdn-lfs.huggingface.co",
-                                                "https://cdn-lfs-us-1.huggingface.co",
                                                 "https://gpu-provider.dev.golem.network",
                                             ],
                                         },
@@ -138,9 +132,9 @@ async def create_cluster(
         commands.CreateClusterRequest,
         Body(
             openapi_examples={
-                "linear_budget_vpn_reputation": {
-                    "summary": "Average usage budget, VPN and reputation",
-                    "description": "This example shows how to create cluster that support average usage budget, simple VPN network and Golem Reputation integration. Note that to use this example, integration with Golem Reputation is required at Golem Workers startup - refer to README for more information.",
+                "testnet_linear_budget_vpn_reputation": {
+                    "summary": "Average usage budget, VPN and reputation (testnet)",
+                    "description": "This example shows how to create a testnet cluster that support average usage budget, simple VPN network and Golem Reputation integration. Note that to use this example, integration with Golem Reputation is required at Golem Workers startup - refer to README for more information.",
                     "value": {
                         "cluster_id": "example",
                         "budget_types": {
@@ -174,6 +168,53 @@ async def create_cluster(
                                         {
                                             "golem_reputation.ReputationScorer": {
                                                 "payment_network": "holesky",
+                                            },
+                                        },
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                },
+                "mainnet_linear_budget_vpn_reputation": {
+                    "summary": "Average usage budget, VPN and reputation (mainnet)",
+                    "description": "This example shows how to create a mainnet cluster that support average usage budget, simple VPN network and Golem Reputation integration. Note that to use this example, integration with Golem Reputation is required at Golem Workers startup - refer to README for more information.",
+                    "value": {
+                        "cluster_id": "example",
+                        "payment_config": {
+                            "network": "polygon"
+                        },
+                        "budget_types": {
+                            "default": {
+                                "budget": {
+                                    "golem_workers.budgets.AveragePerCpuUsageLinearModelBudget": {
+                                        "average_cpu_load": 1.0,
+                                        "average_duration_hours": 0.5,
+                                        "average_max_cost": 1.5,
+                                    },
+                                },
+                                "scope": "cluster",
+                            },
+                        },
+                        "network_types": {
+                            "default": {
+                                "ip": "192.168.0.0/16",
+                            },
+                        },
+                        "node_types": {
+                            "default": {
+                                "market_config": {
+                                    "filters": [
+                                        {
+                                            "golem_reputation.ProviderBlacklistPlugin": {
+                                                "payment_network": "polygon",
+                                            },
+                                        },
+                                    ],
+                                    "sorters": [
+                                        {
+                                            "golem_reputation.ReputationScorer": {
+                                                "payment_network": "polygon",
                                             },
                                         },
                                     ],
@@ -327,9 +368,6 @@ async def create_node(
                                                 "runtime": "vm-nvidia",
                                                 "image_tag": "scalepointai/automatic1111:4",
                                                 "outbound_urls": [
-                                                    "https://huggingface.co",
-                                                    "https://cdn-lfs.huggingface.co",
-                                                    "https://cdn-lfs-us-1.huggingface.co",
                                                     "https://gpu-provider.dev.golem.network",
                                                 ],
                                             },
