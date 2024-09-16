@@ -407,13 +407,6 @@ async def create_node(
                                         "remote_port": "8001",
                                     },
                                 },
-                                {
-                                    "golem_workers.sidecars.WebsocatPortTunnelSidecar": {
-                                        "network_name": "default",
-                                        "local_port": "2222",
-                                        "remote_port": "22"
-                                    } 
-                                },
                             ],
                         },
                     },
