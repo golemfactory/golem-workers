@@ -154,7 +154,6 @@ class Budget(ABC):
         logger.info("Agreement `%s` unregistered from budget `%s`", agreement, self)
 
     async def _on_new_invoice(self, event: NewInvoice) -> None:
-        breakpoint()
         invoice = event.resource
         invoice_data = await invoice.get_data()
 
