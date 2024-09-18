@@ -1,0 +1,56 @@
+{
+    "cluster_id": "example",
+        "node_networks": {
+            "default": {}
+        },
+    "node_config": {
+        "market_config": {
+            "demand": {
+                "payloads": [
+                    {
+                        "golem_workers.payloads.ClusterNodePayload": {
+                            "runtime": "vm-nvidia",
+                            "image_tag": "scalepointai/automatic1111:4",
+                            "outbound_urls": [
+                                "https://gpu-provider.dev.golem.network"
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "on_start_commands": [
+            {
+                "golem_workers.work.deploy_and_start_activity": {
+                    "deploy_timeout_minutes": 60
+                }
+            },
+            {
+                "golem_workers.work.prepare_and_run_ssh_server": {
+                    "ssh_private_key_path": "/tmp/ssh_key"
+                }
+            },
+            {
+                "golem_workers.work.run_in_shell": [
+                    "cd /usr/src/app/ && ./start.sh --model_url https://gpu-provider.dev.golem.network/models/v1-5-pruned-emaonly.safetensors > /usr/src/app/output/log 2>&1 &"
+                ]
+            }
+        ],
+        "sidecars": [
+            {
+                "golem_workers.sidecars.WebsocatPortTunnelSidecar": {
+                    "network_name": "default",
+                    "local_port": "8080",
+                    "remote_port": "8000"
+                }
+            },
+            {
+                "golem_workers.sidecars.WebsocatPortTunnelSidecar": {
+                    "network_name": "default",
+                    "local_port": "8081",
+                    "remote_port": "8001"
+                }
+            }
+        ]
+    }
+}
