@@ -1,0 +1,42 @@
+{
+    "cluster_id": "example",
+    "node_networks": {
+        "default": {}
+    },
+    "node_config": {
+        "market_config": {
+            "demand": {
+                "payloads": [
+                    {
+                        "golem_workers.payloads.ClusterNodePayload": {
+                            "image_tag": "scalepointai/echo-test:2"
+                        }
+                    }
+                ]
+            }
+        },
+        "on_start_commands": [
+            {
+                "golem_workers.work.deploy_and_start_activity": {
+                    "deploy_timeout_minutes": 60
+                }
+            },
+            {
+                "golem_workers.work.run_in_shell": [
+                    [
+                        "nginx"
+                    ]
+                ]
+            }
+        ],
+        "sidecars": [
+            {
+                "golem_workers.sidecars.WebsocatPortTunnelSidecar": {
+                    "network_name": "default",
+                    "local_port": "8080",
+                    "remote_port": "80"
+                }
+            }
+        ]
+    }
+}
