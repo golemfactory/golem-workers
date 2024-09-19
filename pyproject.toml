@@ -61,6 +61,8 @@ format = {sequence = ["_format_lint", "_format_format"], help = "Run code auto f
 _format_lint = "ruff check --fix"
 _format_format = "ruff format"
 
+extract_openapi = {cmd = "python3 -m utils.extract-openapi --out openapi.json golem_workers.entrypoints.web.main:app", env = {YAGNA_APPKEY = "ignored_but_needed"}, help = "Extract openapi.json file"}
+
 [tool.ruff]
 line-length = 100
 
