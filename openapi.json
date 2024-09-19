@@ -1,0 +1,1563 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Golem Workers Specification",
+    "version": "0.3.4"
+  },
+  "paths": {
+    "/": {
+      "get": {
+        "tags": [
+          "misc"
+        ],
+        "summary": "Index",
+        "description": "Returns golem-workers status and version.",
+        "operationId": "index__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/get-proposals": {
+      "post": {
+        "tags": [
+          "misc"
+        ],
+        "summary": "Get Proposals",
+        "description": "Reads proposals from Golem Network based on given `market_config`.",
+        "operationId": "get_proposals_get_proposals_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetProposalsRequest"
+              },
+              "examples": {
+                "minimal_cpu": {
+                  "summary": "Minimal CPU",
+                  "description": "This example shows how to select providers for Virtual Machine.",
+                  "value": {
+                    "market_config": {
+                      "demand": {
+                        "payloads": [
+                          "golem_workers.payloads.ClusterNodePayload"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "minimal_gpu": {
+                  "summary": "Single GPU",
+                  "description": "This example shows how to select providers for Virtual Machine with any GPU support.",
+                  "value": {
+                    "market_config": {
+                      "demand": {
+                        "payloads": [
+                          {
+                            "golem_workers.payloads.ClusterNodePayload": {
+                              "runtime": "vm-nvidia",
+                              "min_mem_gib": 16,
+                              "min_storage_gib": 20,
+                              "outbound_urls": [
+                                "https://gpu-provider.dev.golem.network"
+                              ]
+                            }
+                          }
+                        ],
+                        "constraints": [
+                          "golem.!exp.gap-35.v1.inf.gpu.model=*"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "multi_gpu": {
+                  "summary": "Multiple GPU",
+                  "description": "This example shows how to select providers for Virtual Machine with multiple GPU support.",
+                  "value": {
+                    "market_config": {
+                      "demand": {
+                        "payloads": [
+                          {
+                            "golem_workers.payloads.ClusterNodePayload": {
+                              "runtime": "vm-nvidia",
+                              "min_mem_gib": 16,
+                              "min_storage_gib": 20,
+                              "outbound_urls": [
+                                "https://gpu-provider.dev.golem.network"
+                              ]
+                            }
+                          }
+                        ],
+                        "constraints": [
+                          "golem.!exp.gap-35.v1.inf.gpu.d0.quantity>=2"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetProposalsResponse"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Unhandled server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPGenericError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/create-cluster": {
+      "post": {
+        "tags": [
+          "clusters"
+        ],
+        "summary": "Create Cluster",
+        "description": "Creates cluster and schedules its start.",
+        "operationId": "create_cluster_create_cluster_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateClusterRequest"
+              },
+              "examples": {
+                "testnet_linear_budget_vpn_reputation": {
+                  "summary": "Average usage budget, VPN and reputation (testnet)",
+                  "description": "This example shows how to create a testnet cluster that support average usage budget, simple VPN network and Golem Reputation integration. Note that to use this example, integration with Golem Reputation is required at Golem Workers startup - refer to README for more information.",
+                  "value": {
+                    "cluster_id": "example",
+                    "budget_types": {
+                      "default": {
+                        "budget": {
+                          "golem_workers.budgets.AveragePerCpuUsageLinearModelBudget": {
+                            "average_cpu_load": 1.0,
+                            "average_duration_hours": 0.5,
+                            "average_max_cost": 1.5
+                          }
+                        },
+                        "scope": "cluster"
+                      }
+                    },
+                    "network_types": {
+                      "default": {
+                        "ip": "192.168.0.0/16"
+                      }
+                    },
+                    "node_types": {
+                      "default": {
+                        "market_config": {
+                          "filters": [
+                            {
+                              "golem_reputation.ProviderBlacklistPlugin": {
+                                "payment_network": "holesky"
+                              }
+                            }
+                          ],
+                          "sorters": [
+                            {
+                              "golem_reputation.ReputationScorer": {
+                                "payment_network": "holesky"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                "mainnet_linear_budget_vpn_reputation": {
+                  "summary": "Average usage budget, VPN and reputation (mainnet)",
+                  "description": "This example shows how to create a mainnet cluster that support average usage budget, simple VPN network and Golem Reputation integration. Note that to use this example, integration with Golem Reputation is required at Golem Workers startup - refer to README for more information.",
+                  "value": {
+                    "cluster_id": "example",
+                    "payment_config": {
+                      "network": "polygon"
+                    },
+                    "budget_types": {
+                      "default": {
+                        "budget": {
+                          "golem_workers.budgets.AveragePerCpuUsageLinearModelBudget": {
+                            "average_cpu_load": 1.0,
+                            "average_duration_hours": 0.5,
+                            "average_max_cost": 1.5
+                          }
+                        },
+                        "scope": "cluster"
+                      }
+                    },
+                    "network_types": {
+                      "default": {
+                        "ip": "192.168.0.0/16"
+                      }
+                    },
+                    "node_types": {
+                      "default": {
+                        "market_config": {
+                          "filters": [
+                            {
+                              "golem_reputation.ProviderBlacklistPlugin": {
+                                "payment_network": "polygon"
+                              }
+                            }
+                          ],
+                          "sorters": [
+                            {
+                              "golem_reputation.ReputationScorer": {
+                                "payment_network": "polygon"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateClusterResponse"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Unhandled server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPGenericError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Object already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPGenericError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/get-cluster": {
+      "post": {
+        "tags": [
+          "clusters"
+        ],
+        "summary": "Get Cluster",
+        "description": "Reads cluster info and status.",
+        "operationId": "get_cluster_get_cluster_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetClusterRequest"
+              },
+              "examples": {
+                "example": {
+                  "summary": "Example Cluster",
+                  "description": "This example shows how to get the cluster info.",
+                  "value": {
+                    "cluster_id": "example"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetClusterResponse"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Unhandled server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPGenericError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Object was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPGenericError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/delete-cluster": {
+      "post": {
+        "tags": [
+          "clusters"
+        ],
+        "summary": "Delete Cluster",
+        "description": "Marks cluster for deletion and schedules its stop.",
+        "operationId": "delete_cluster_delete_cluster_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteClusterRequest"
+              },
+              "examples": {
+                "example": {
+                  "summary": "Example Cluster",
+                  "description": "This example shows how to delete the cluster.",
+                  "value": {
+                    "cluster_id": "example"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteClusterResponse"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Unhandled server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPGenericError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Object was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPGenericError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/create-node": {
+      "post": {
+        "tags": [
+          "nodes"
+        ],
+        "summary": "Create Node",
+        "description": "Creates node. Apply logic from cluster configuration.",
+        "operationId": "create_node_create_node_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateNodeRequest"
+              },
+              "examples": {
+                "echo_test": {
+                  "summary": "scalepointai/echo-test:2",
+                  "description": "This example shows how to run echo test. It will use a VPN and proxy traffic from local machine to running vm at http://localhost:8080.",
+                  "value": {
+                    "cluster_id": "example",
+                    "node_networks": {
+                      "default": {}
+                    },
+                    "node_config": {
+                      "market_config": {
+                        "demand": {
+                          "payloads": [
+                            {
+                              "golem_workers.payloads.ClusterNodePayload": {
+                                "image_tag": "scalepointai/echo-test:2"
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      "on_start_commands": [
+                        {
+                          "golem_workers.work.deploy_and_start_activity": {
+                            "deploy_timeout_minutes": 60
+                          }
+                        },
+                        {
+                          "golem_workers.work.run_in_shell": [
+                            [
+                              "nginx"
+                            ]
+                          ]
+                        }
+                      ],
+                      "sidecars": [
+                        {
+                          "golem_workers.sidecars.WebsocatPortTunnelSidecar": {
+                            "network_name": "default",
+                            "local_port": "8080",
+                            "remote_port": "80"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                },
+                "automatic": {
+                  "summary": "scalepointai/automatic1111:4",
+                  "description": "This example shows how to run automatic with example model image. Automatic will take few minutes to download example model from Huggingface to provider. It will use a VPN and proxy traffic from local machine to running vm at http://localhost:8080.",
+                  "value": {
+                    "cluster_id": "example",
+                    "node_networks": {
+                      "default": {}
+                    },
+                    "node_config": {
+                      "market_config": {
+                        "demand": {
+                          "payloads": [
+                            {
+                              "golem_workers.payloads.ClusterNodePayload": {
+                                "runtime": "vm-nvidia",
+                                "image_tag": "scalepointai/automatic1111:4",
+                                "outbound_urls": [
+                                  "https://gpu-provider.dev.golem.network"
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      "on_start_commands": [
+                        {
+                          "golem_workers.work.deploy_and_start_activity": {
+                            "deploy_timeout_minutes": 60
+                          }
+                        },
+                        {
+                          "golem_workers.work.prepare_and_run_ssh_server": {
+                            "ssh_private_key_path": "/tmp/ssh_key"
+                          }
+                        },
+                        {
+                          "golem_workers.work.run_in_shell": [
+                            "cd /usr/src/app/ && ./start.sh --model_url https://gpu-provider.dev.golem.network/models/v1-5-pruned-emaonly.safetensors > /usr/src/app/output/log 2>&1 &"
+                          ]
+                        }
+                      ],
+                      "sidecars": [
+                        {
+                          "golem_workers.sidecars.WebsocatPortTunnelSidecar": {
+                            "network_name": "default",
+                            "local_port": "8080",
+                            "remote_port": "8000"
+                          }
+                        },
+                        {
+                          "golem_workers.sidecars.WebsocatPortTunnelSidecar": {
+                            "network_name": "default",
+                            "local_port": "8081",
+                            "remote_port": "8001"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateNodeResponse"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Unhandled server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPGenericError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Object already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPGenericError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/get-node": {
+      "post": {
+        "tags": [
+          "nodes"
+        ],
+        "summary": "Get Node",
+        "description": "Read node info and status",
+        "operationId": "get_node_get_node_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetNodeRequest"
+              },
+              "examples": {
+                "vpn_reputation": {
+                  "summary": "Example Node",
+                  "description": "This example shows how to get the node info.",
+                  "value": {
+                    "cluster_id": "example",
+                    "node_id": "node0"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetNodeResponse"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Unhandled server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPGenericError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Object was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPGenericError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/delete-node": {
+      "post": {
+        "tags": [
+          "nodes"
+        ],
+        "summary": "Delete Node",
+        "description": "Marks node for deletion and schedules its stop.",
+        "operationId": "delete_node_delete_node_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteNodeRequest"
+              },
+              "examples": {
+                "vpn_reputation": {
+                  "summary": "Example Node",
+                  "description": "This example shows how to delete the node.",
+                  "value": {
+                    "cluster_id": "example",
+                    "node_id": "node0"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteNodeResponse"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Unhandled server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPGenericError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Object was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPGenericError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AllocationConfig": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id",
+            "description": "Explicit allocation id to be used. Can't be defined with `amount` field."
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount",
+            "description": "Amount used for new allocation. Can't be defined with `id` field."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "AllocationConfig",
+        "description": "Definition of the details related to Allocation.\n\nUsing this configuration tells Budget to use existing Allocation or create new allocation with given limit."
+      },
+      "BudgetConfig": {
+        "properties": {
+          "budget": {
+            "$ref": "#/components/schemas/ImportableElement",
+            "description": "Importable Budget class.\n        \n        Built-in budgets:\n          * `golem_workers.budgets.LinearModelBudget`\n          * `golem_workers.budgets.AveragePerCpuUsageLinearModelBudget`\n        "
+          },
+          "payment_config": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaymentConfig"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Payment configuration that will be applied to this budget. Will replace `payment_config` from cluster if defined."
+          },
+          "allocation_config": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AllocationConfig"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Allocation configuration that will be applied to this budget. Will replace `allocation_config` from cluster if defined."
+          },
+          "scope": {
+            "$ref": "#/components/schemas/BudgetScope",
+            "default": "node"
+          }
+        },
+        "type": "object",
+        "required": [
+          "budget"
+        ],
+        "title": "BudgetConfig"
+      },
+      "BudgetScope": {
+        "type": "string",
+        "enum": [
+          "cluster",
+          "node-type",
+          "node"
+        ],
+        "title": "BudgetScope"
+      },
+      "ClusterOut": {
+        "properties": {
+          "cluster_id": {
+            "type": "string",
+            "title": "Cluster Id"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ClusterState"
+          },
+          "nodes": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/NodeOut"
+            },
+            "type": "object",
+            "title": "Nodes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cluster_id",
+          "state",
+          "nodes"
+        ],
+        "title": "ClusterOut",
+        "description": "Data related to Cluster."
+      },
+      "ClusterState": {
+        "type": "string",
+        "enum": [
+          "created",
+          "starting",
+          "started",
+          "stopping",
+          "stopped",
+          "deleting"
+        ],
+        "title": "ClusterState",
+        "description": "Enum related to cluster state."
+      },
+      "CreateClusterRequest": {
+        "properties": {
+          "cluster_id": {
+            "type": "string",
+            "title": "Cluster Id",
+            "default": "default"
+          },
+          "payment_config": {
+            "$ref": "#/components/schemas/PaymentConfig",
+            "description": "Payment configuration that will be applied on the whole cluster. Can be replaced by `payment_config` in `budget_types`."
+          },
+          "allocation_config": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AllocationConfig"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Allocation configuration that will be applied on the whole cluster. Can be replaced by `allocation_config` in `budget_types`."
+          },
+          "budget_types": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/BudgetConfig"
+            },
+            "type": "object",
+            "minProperties": 1,
+            "title": "Budget Types",
+            "description": "Collection of Budget configurations that nodes can reference by the key."
+          },
+          "network_types": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/NetworkConfig"
+            },
+            "type": "object",
+            "title": "Network Types",
+            "description": "Collection of Network configurations that nodes can reference by the key."
+          },
+          "node_types": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/NodeConfig"
+            },
+            "type": "object",
+            "title": "Node Types",
+            "description": "Collection of Node configurations that nodes can reference by the key. Can be extended by the node."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "budget_types"
+        ],
+        "title": "CreateClusterRequest"
+      },
+      "CreateClusterResponse": {
+        "properties": {
+          "cluster": {
+            "$ref": "#/components/schemas/ClusterOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cluster"
+        ],
+        "title": "CreateClusterResponse"
+      },
+      "CreateNodeRequest": {
+        "properties": {
+          "cluster_id": {
+            "type": "string",
+            "title": "Cluster Id",
+            "default": "default"
+          },
+          "budget_type": {
+            "type": "string",
+            "title": "Budget Type",
+            "default": "default"
+          },
+          "node_networks": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/NodeNetworkConfig"
+            },
+            "type": "object",
+            "title": "Node Networks",
+            "description": ""
+          },
+          "node_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Node Type",
+            "default": "default"
+          },
+          "node_config": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NodeConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CreateNodeRequest"
+      },
+      "CreateNodeResponse": {
+        "properties": {
+          "node": {
+            "$ref": "#/components/schemas/NodeOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "node"
+        ],
+        "title": "CreateNodeResponse"
+      },
+      "DeleteClusterRequest": {
+        "properties": {
+          "cluster_id": {
+            "type": "string",
+            "title": "Cluster Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "cluster_id"
+        ],
+        "title": "DeleteClusterRequest"
+      },
+      "DeleteClusterResponse": {
+        "properties": {
+          "cluster": {
+            "$ref": "#/components/schemas/ClusterOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cluster"
+        ],
+        "title": "DeleteClusterResponse"
+      },
+      "DeleteNodeRequest": {
+        "properties": {
+          "cluster_id": {
+            "type": "string",
+            "title": "Cluster Id"
+          },
+          "node_id": {
+            "type": "string",
+            "title": "Node Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "cluster_id",
+          "node_id"
+        ],
+        "title": "DeleteNodeRequest"
+      },
+      "DeleteNodeResponse": {
+        "properties": {
+          "node": {
+            "$ref": "#/components/schemas/NodeOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "node"
+        ],
+        "title": "DeleteNodeResponse"
+      },
+      "GetClusterRequest": {
+        "properties": {
+          "cluster_id": {
+            "type": "string",
+            "title": "Cluster Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "cluster_id"
+        ],
+        "title": "GetClusterRequest"
+      },
+      "GetClusterResponse": {
+        "properties": {
+          "cluster": {
+            "$ref": "#/components/schemas/ClusterOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cluster"
+        ],
+        "title": "GetClusterResponse"
+      },
+      "GetNodeRequest": {
+        "properties": {
+          "cluster_id": {
+            "type": "string",
+            "title": "Cluster Id"
+          },
+          "node_id": {
+            "type": "string",
+            "title": "Node Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "cluster_id",
+          "node_id"
+        ],
+        "title": "GetNodeRequest"
+      },
+      "GetNodeResponse": {
+        "properties": {
+          "node": {
+            "$ref": "#/components/schemas/NodeOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "node"
+        ],
+        "title": "GetNodeResponse"
+      },
+      "GetProposalsRequest": {
+        "properties": {
+          "market_config": {
+            "$ref": "#/components/schemas/MarketConfig",
+            "description": "Market configuration to be used for gathering proposals from the market. It's definition can be partial in comparison with definition in node creation."
+          },
+          "budget": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImportableElement"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Budget to be used for market processing.",
+            "default": "golem_workers.budgets.BlankBudget"
+          },
+          "payment_config": {
+            "$ref": "#/components/schemas/PaymentConfig",
+            "description": "Payment configuration to be used for gathering proposals from the market."
+          },
+          "collection_time_seconds": {
+            "type": "number",
+            "title": "Collection Time Seconds",
+            "description": "Number of seconds of how long proposals should be gathered on the market. Too small value can result in less or even no proposals.",
+            "default": 5
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "market_config"
+        ],
+        "title": "GetProposalsRequest"
+      },
+      "GetProposalsResponse": {
+        "properties": {
+          "proposals": {
+            "items": {
+              "$ref": "#/components/schemas/ProposalOut"
+            },
+            "type": "array",
+            "title": "Proposals"
+          }
+        },
+        "type": "object",
+        "required": [
+          "proposals"
+        ],
+        "title": "GetProposalsResponse"
+      },
+      "HTTPGenericError": {
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "HTTPGenericError"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "ImportableElement": {
+        "anyOf": [
+          {
+            "type": "string",
+            "description": "Importable dotted path to Python object. Shortcut for objects with no arguments or all-default arguments."
+          },
+          {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "description": "Collection of kwargs to be applied for importable object."
+                },
+                {
+                  "items": {},
+                  "type": "array",
+                  "description": "Collection of args to be applied for importable object."
+                }
+              ]
+            },
+            "type": "object",
+            "maxProperties": 1,
+            "minProperties": 1,
+            "description": "Object which the only key is a importable dotted path to Python object."
+          }
+        ],
+        "title": "ImportableElement"
+      },
+      "MarketConfig": {
+        "properties": {
+          "demand": {
+            "$ref": "#/components/schemas/MarketConfigDemand"
+          },
+          "filters": {
+            "items": {
+              "$ref": "#/components/schemas/ImportableElement"
+            },
+            "type": "array",
+            "title": "Filters",
+            "description": "List of importable filters to be applied on each found proposal."
+          },
+          "sorters": {
+            "items": {
+              "$ref": "#/components/schemas/ImportableElement"
+            },
+            "type": "array",
+            "title": "Sorters",
+            "description": "List of importable sorters to be applied on all found proposals."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "MarketConfig",
+        "description": "Definition of the way how prepare the demand and how to process found Proposals."
+      },
+      "MarketConfigDemand": {
+        "properties": {
+          "payloads": {
+            "items": {
+              "$ref": "#/components/schemas/ImportableElement"
+            },
+            "type": "array",
+            "title": "Payloads",
+            "description": "List of importable payloads to be added to the demand exactly in given order.\n        \n        Built-in payloads:\n          * `golem_workers.payloads.ClusterNodePayload`\n        "
+          },
+          "properties": {
+            "type": "object",
+            "title": "Properties",
+            "description": "Collection of raw properties to be added to the demand on top of payloads."
+          },
+          "constraints": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Constraints",
+            "description": "List of [raw constraints](https://github.com/golemfactory/golem-architecture/pull/83) to be added to the demand on top of payloads."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "MarketConfigDemand",
+        "description": "Collection of highly customisable payload objects, properties and constraints to be applied to the demand."
+      },
+      "NetworkConfig": {
+        "properties": {
+          "ip": {
+            "type": "string",
+            "title": "Ip",
+            "description": "IP address of the network. May contain netmask, e.g. `192.168.0.0/16`."
+          },
+          "mask": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mask",
+            "description": "Optional netmask (only if not provided within the `ip` argument)."
+          },
+          "gateway": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gateway",
+            "description": "Optional gateway address for the network."
+          },
+          "add_requestor": {
+            "type": "boolean",
+            "title": "Add Requestor",
+            "description": "If True, adds requestor with ip `requestor_ip` to the network.",
+            "default": true
+          },
+          "requestor_ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requestor Ip",
+            "description": "Ip of the requestor node in the network. Ignored if not `add_requestor`. If `None`, next free ip will be assigned."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ip"
+        ],
+        "title": "NetworkConfig",
+        "description": "Definition of the way how to prepare VPN networks."
+      },
+      "NodeConfig": {
+        "properties": {
+          "market_config": {
+            "$ref": "#/components/schemas/MarketConfig"
+          },
+          "sidecars": {
+            "items": {
+              "$ref": "#/components/schemas/ImportableElement"
+            },
+            "type": "array",
+            "title": "Sidecars",
+            "description": "List of importable Sidecars that will be started with the node.\n        \n        Built-in sidecars:\n          * `golem_workers.sidecars.ActivityStateMonitorClusterNodeSidecar` (added automatically to all nodes)\n          * `golem_workers.sidecars.SshPortTunnelSidecar`\n          * `golem_workers.sidecars.WebsocatPortTunnelSidecar`\n        "
+          },
+          "on_start_commands": {
+            "items": {
+              "$ref": "#/components/schemas/ImportableElement"
+            },
+            "type": "array",
+            "title": "On Start Commands",
+            "description": "List of importable work functions to run when activity is about to be started.\n        \n        Built-in commands:\n          * `golem_workers.work.deploy_and_start_activity`\n          * `golem_workers.work.prepare_and_run_ssh_server`\n          * `golem_workers.work.run_in_shell`\n          * `golem_workers.work.stop_activity`\n        "
+          },
+          "on_stop_commands": {
+            "items": {
+              "$ref": "#/components/schemas/ImportableElement"
+            },
+            "type": "array",
+            "title": "On Stop Commands",
+            "description": "List of importable work functions to run when activity is about to be stopped.\n        \n        Built-in commands:\n          * `golem_workers.work.deploy_and_start_activity`\n          * `golem_workers.work.prepare_and_run_ssh_server`\n          * `golem_workers.work.run_in_shell`\n          * `golem_workers.work.stop_activity`\n        "
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "NodeConfig",
+        "description": "Definition of the details related to node creation."
+      },
+      "NodeNetworkConfig": {
+        "properties": {
+          "ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip",
+            "description": "Ip of the node in the network. If `None`, next free ip will be assigned."
+          }
+        },
+        "type": "object",
+        "title": "NodeNetworkConfig"
+      },
+      "NodeOut": {
+        "properties": {
+          "node_id": {
+            "type": "string",
+            "title": "Node Id"
+          },
+          "state": {
+            "$ref": "#/components/schemas/NodeState"
+          }
+        },
+        "type": "object",
+        "required": [
+          "node_id",
+          "state"
+        ],
+        "title": "NodeOut",
+        "description": "Data related to Node."
+      },
+      "NodeState": {
+        "type": "string",
+        "enum": [
+          "created",
+          "provisioning",
+          "provisioning-failed",
+          "provisioned",
+          "starting",
+          "starting-failed",
+          "started",
+          "stopping",
+          "stopped",
+          "deleting"
+        ],
+        "title": "NodeState",
+        "description": "Enum related to node state."
+      },
+      "PaymentConfig": {
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address",
+            "description": "Explicit wallet address to be used, instead of chosen automatically."
+          },
+          "network": {
+            "type": "string",
+            "title": "Network",
+            "description": "Explicit payment network to be used, instead of chosen automatically.",
+            "default": "holesky"
+          },
+          "driver": {
+            "type": "string",
+            "title": "Driver",
+            "description": "Explicit payment driver to be used, instead of chosen automatically.",
+            "default": "erc20"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PaymentConfig",
+        "description": "Definition of the details related to payment methods."
+      },
+      "ProposalOut": {
+        "properties": {
+          "proposal_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposal Id"
+          },
+          "issuer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuer Id"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "Initial",
+              "Draft",
+              "Rejected",
+              "Accepted",
+              "Expired"
+            ],
+            "title": "State"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          },
+          "properties": {
+            "type": "object",
+            "title": "Properties"
+          }
+        },
+        "type": "object",
+        "required": [
+          "proposal_id",
+          "issuer_id",
+          "state",
+          "timestamp",
+          "properties"
+        ],
+        "title": "ProposalOut",
+        "description": "Data related to Proposal."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "clusters",
+      "description": "Endpoints related to Cluster management."
+    },
+    {
+      "name": "nodes",
+      "description": "Endpoints related to Node management."
+    },
+    {
+      "name": "misc",
+      "description": "General endpoints for utilities."
+    }
+  ]
+}
