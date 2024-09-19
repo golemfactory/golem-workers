@@ -1,4 +1,3 @@
-# extract-openapi.py
 import argparse
 import json
 import sys
