@@ -2,6 +2,7 @@ import logging.config
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, status
+from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 
 from golem.utils.logging import DEFAULT_LOGGING
@@ -73,5 +74,21 @@ def create_application() -> FastAPI:
     )
     app.include_router(router)
     app.state.container = container
+
+    origins = [
+        "https://docs.golem.network",
+        "http://localhost:3000",
+    ]
+
+    vercel_origin_regex = "https://.*\.vercel\.app"
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_origin_regex=vercel_origin_regex,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     return app
