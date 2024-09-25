@@ -1,0 +1,43 @@
+{
+    "cluster_id": "ollama-example",
+    "payment_config": {
+        "network": "holesky"
+    },
+    "budget_types": {
+        "default": {
+            "budget": {
+                "golem_workers.budgets.AveragePerCpuUsageLinearModelBudget": {
+                    "average_cpu_load": 1,
+                    "average_duration_hours": 0.5,
+                    "average_max_cost": 1.5
+                }
+            },
+            "scope": "cluster"
+        }
+    },
+    "network_types": {
+        "default": {
+            "ip": "192.168.0.1/16"
+        }
+    },
+    "node_types": {
+        "default": {
+            "market_config": {
+                "filters": [
+                    {
+                        "golem_reputation.ProviderBlacklistPlugin": {
+                            "payment_network": "holesky"
+                        }
+                    }
+                ],
+                "sorters": [
+                    {
+                        "golem_reputation.ReputationScorer": {
+                            "payment_network": "holesky"
+                        }
+                    }
+                ]
+            }
+        }
+    }
+}
