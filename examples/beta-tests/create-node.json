@@ -10,7 +10,7 @@
                     {
                         "golem_workers.payloads.ClusterNodePayload": {
                             "runtime": "vm-nvidia",
-                            "image_tag": "scalepointai/automatic1111:4",
+                            "image_tag": "modelserve/automatic1111:4",
                             "subnet_tag": "golem-workers-beta",
                             "outbound_urls": [
                                  "https://gpu-provider.dev.golem.network"

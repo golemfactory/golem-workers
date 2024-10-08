@@ -304,7 +304,7 @@ async def create_node(
         Body(
             openapi_examples={
                 "echo_test": {
-                    "summary": "scalepointai/echo-test:2",
+                    "summary": "modelserve/echo-test:2",
                     "description": "This example shows how to run echo test. It will use a VPN and proxy traffic from local machine to running vm at http://localhost:8080.",
                     "value": {
                         "cluster_id": "example",
@@ -319,7 +319,7 @@ async def create_node(
                                     "payloads": [
                                         {
                                             "golem_workers.payloads.ClusterNodePayload": {
-                                                "image_tag": "scalepointai/echo-test:2",
+                                                "image_tag": "modelserve/echo-test:2",
                                             },
                                         },
                                     ],
@@ -350,7 +350,7 @@ async def create_node(
                     },
                 },
                 "automatic": {
-                    "summary": "scalepointai/automatic1111:4",
+                    "summary": "modelserve/automatic1111:4",
                     "description": "This example shows how to run automatic with example model image. Automatic will take few minutes to download example model from Huggingface to provider. It will use a VPN and proxy traffic from local machine to running vm at http://localhost:8080.",
                     "value": {
                         "cluster_id": "example",
@@ -366,7 +366,7 @@ async def create_node(
                                         {
                                             "golem_workers.payloads.ClusterNodePayload": {
                                                 "runtime": "vm-nvidia",
-                                                "image_tag": "scalepointai/automatic1111:4",
+                                                "image_tag": "modelserve/automatic1111:4",
                                                 "outbound_urls": [
                                                     "https://gpu-provider.dev.golem.network",
                                                 ],
