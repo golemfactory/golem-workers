@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Golem Workers Specification",
-    "version": "0.3.5a0"
+    "version": "0.3.5"
   },
   "paths": {
     "/": {
