@@ -9,7 +9,7 @@
                 "payloads": [
                     {
                         "golem_workers.payloads.ClusterNodePayload": {
-                            "image_tag": "scalepointai/echo-test:2"
+                            "image_tag": "modelserve/echo-test:2"
                         }
                     }
                 ]
