@@ -74,6 +74,13 @@ class Container(DeclarativeContainer):
         clusters_lock,
         clusters,
     )
+    list_cluster_command = providers.Factory(
+        commands.ListClusterCommand,
+        golem_node,
+        clusters_lock,
+        clusters,
+    )
+
     get_cluster_command = providers.Factory(
         commands.GetClusterCommand,
         clusters,

@@ -1,9 +1,13 @@
 from enum import Enum
+from typing import List
+
 from fastapi import Request, status, APIRouter, Body
+from fastapi.params import Path
 from pydantic import BaseModel
 from typing_extensions import Annotated
 
 from golem_workers import commands, __version__
+from golem_workers.commands import GetClusterRequest, DeleteClusterRequest, GetNodeRequest, DeleteNodeRequest
 
 
 class HTTPGenericError(BaseModel):
@@ -121,8 +125,17 @@ async def get_proposals(
     return await command(request_data)
 
 
+@router.get("/cluster", tags=[Tags.CLUSTERS])
+async def list_clusters(request: Request) -> Annotated[List[str], Body(examples=[["cluster1", "cluster2"]])]:
+    """
+    Lists available clusters
+    """
+    command = await request.app.state.container.list_cluster_command()
+    return await command()
+
+
 @router.post(
-    "/create-cluster",
+    "/cluster",
     tags=[Tags.CLUSTERS],
     responses={**responses, **already_exists_responses},
     description=commands.CreateClusterCommand.__doc__,
@@ -181,9 +194,7 @@ async def create_cluster(
                     "description": "This example shows how to create a mainnet cluster that support average usage budget, simple VPN network and Golem Reputation integration. Note that to use this example, integration with Golem Reputation is required at Golem Workers startup - refer to README for more information.",
                     "value": {
                         "cluster_id": "example",
-                        "payment_config": {
-                            "network": "polygon"
-                        },
+                        "payment_config": {"network": "polygon"},
                         "budget_types": {
                             "default": {
                                 "budget": {
@@ -233,64 +244,39 @@ async def create_cluster(
     return await command(request_data)
 
 
-@router.post(
-    "/get-cluster",
+@router.get(
+    "/cluster/{cluster_id}",
     tags=[Tags.CLUSTERS],
     responses={**responses, **not_found_responses},
     description=commands.GetClusterCommand.__doc__,
 )
 async def get_cluster(
-    request_data: Annotated[
-        commands.GetClusterRequest,
-        Body(
-            openapi_examples={
-                "example": {
-                    "summary": "Example Cluster",
-                    "description": "This example shows how to get the cluster info.",
-                    "value": {
-                        "cluster_id": "example",
-                    },
-                }
-            }
-        ),
-    ],
     request: Request,
+
 ) -> commands.GetClusterResponse:
     command = await request.app.state.container.get_cluster_command()
+    request_data = GetClusterRequest(cluster_id = cluster_id)
 
     return await command(request_data)
 
 
-@router.post(
-    "/delete-cluster",
+@router.delete(
+    "/cluster/{cluster_id}",
     tags=[Tags.CLUSTERS],
     responses={**responses, **not_found_responses},
     description=commands.DeleteClusterCommand.__doc__,
 )
 async def delete_cluster(
-    request_data: Annotated[
-        commands.DeleteClusterRequest,
-        Body(
-            openapi_examples={
-                "example": {
-                    "summary": "Example Cluster",
-                    "description": "This example shows how to delete the cluster.",
-                    "value": {
-                        "cluster_id": "example",
-                    },
-                }
-            }
-        ),
-    ],
     request: Request,
+    cluster_id : str = Path(..., title="Cluster ID", description="cluster identifier given in create-cluster operation", example="example"),
 ) -> commands.DeleteClusterResponse:
     command = await request.app.state.container.delete_cluster_command()
 
-    return await command(request_data)
+    return await command(DeleteClusterRequest(cluster_id=cluster_id))
 
 
 @router.post(
-    "/create-node",
+    "/cluster/{cluster_id}/node",
     tags=[Tags.NODES],
     responses={
         **responses,
@@ -415,65 +401,40 @@ async def create_node(
         ),
     ],
     request: Request,
+    cluster_id : str = Path(..., title="Cluster ID", description="Cluster to which the new node will be attached", example="example"),
 ) -> commands.CreateNodeResponse:
     command = await request.app.state.container.create_node_command()
 
     return await command(request_data)
 
 
-@router.post(
-    "/get-node",
+@router.get(
+    "/cluster/{cluster_id}/node/{node_id}",
     tags=[Tags.NODES],
     responses={**responses, **not_found_responses},
     description=commands.GetNodeCommand.__doc__,
 )
 async def get_node(
-    request_data: Annotated[
-        commands.GetNodeRequest,
-        Body(
-            openapi_examples={
-                "vpn_reputation": {
-                    "summary": "Example Node",
-                    "description": "This example shows how to get the node info.",
-                    "value": {
-                        "cluster_id": "example",
-                        "node_id": "node0",
-                    },
-                },
-            },
-        ),
-    ],
+        cluster_id: str,
+        node_id: str,
     request: Request,
 ) -> commands.GetNodeResponse:
     command = await request.app.state.container.get_node_command()
 
-    return await command(request_data)
+    return await command(GetNodeRequest(cluster_id=cluster_id, node_id=node_id))
 
 
-@router.post(
-    "/delete-node",
+@router.delete(
+    "/cluster/{cluster_id}/node/{node_id}",
     tags=[Tags.NODES],
     responses={**responses, **not_found_responses},
     description=commands.DeleteNodeCommand.__doc__,
 )
 async def delete_node(
-    request_data: Annotated[
-        commands.DeleteNodeRequest,
-        Body(
-            openapi_examples={
-                "vpn_reputation": {
-                    "summary": "Example Node",
-                    "description": "This example shows how to delete the node.",
-                    "value": {
-                        "cluster_id": "example",
-                        "node_id": "node0",
-                    },
-                },
-            },
-        ),
-    ],
+    cluster_id: str,
+        node_id: str,
     request: Request,
 ) -> commands.DeleteNodeResponse:
     command = await request.app.state.container.delete_node_command()
 
-    return await command(request_data)
+    return await command(DeleteNodeRequest(cluster_id=cluster_id, node_id=node_id))

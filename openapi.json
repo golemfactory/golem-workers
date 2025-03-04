@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Golem Workers Specification",
-    "version": "0.3.5"
+    "version": "0.4.0"
   },
   "paths": {
     "/": {
@@ -142,14 +142,44 @@
         }
       }
     },
-    "/create-cluster": {
+    "/cluster": {
+      "get": {
+        "tags": [
+          "clusters"
+        ],
+        "summary": "List Clusters",
+        "description": "Lists available clusters",
+        "operationId": "list_clusters_cluster_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "examples": [
+                    [
+                      "cluster1",
+                      "cluster2"
+                    ]
+                  ],
+                  "title": "Response List Clusters Cluster Get"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "tags": [
           "clusters"
         ],
         "summary": "Create Cluster",
         "description": "Creates cluster and schedules its start.",
-        "operationId": "create_cluster_create_cluster_post",
+        "operationId": "create_cluster_cluster_post",
         "requestBody": {
           "required": true,
           "content": {
@@ -297,33 +327,14 @@
         }
       }
     },
-    "/get-cluster": {
-      "post": {
+    "/cluster/{cluster_id}": {
+      "get": {
         "tags": [
           "clusters"
         ],
         "summary": "Get Cluster",
         "description": "Reads cluster info and status.",
-        "operationId": "get_cluster_get_cluster_post",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GetClusterRequest"
-              },
-              "examples": {
-                "example": {
-                  "summary": "Example Cluster",
-                  "description": "This example shows how to get the cluster info.",
-                  "value": {
-                    "cluster_id": "example"
-                  }
-                }
-              }
-            }
-          }
-        },
+        "operationId": "get_cluster_cluster__cluster_id__get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -354,47 +365,30 @@
                 }
               }
             }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
           }
         }
-      }
-    },
-    "/delete-cluster": {
-      "post": {
+      },
+      "delete": {
         "tags": [
           "clusters"
         ],
         "summary": "Delete Cluster",
         "description": "Marks cluster for deletion and schedules its stop.",
-        "operationId": "delete_cluster_delete_cluster_post",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DeleteClusterRequest"
-              },
-              "examples": {
-                "example": {
-                  "summary": "Example Cluster",
-                  "description": "This example shows how to delete the cluster.",
-                  "value": {
-                    "cluster_id": "example"
-                  }
-                }
-              }
-            }
+        "operationId": "delete_cluster_cluster__cluster_id__delete",
+        "parameters": [
+          {
+            "name": "cluster_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Cluster ID",
+              "description": "cluster identifier given in create-cluster operation"
+            },
+            "description": "cluster identifier given in create-cluster operation",
+            "example": "example"
           }
-        },
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -439,14 +433,28 @@
         }
       }
     },
-    "/create-node": {
+    "/cluster/{cluster_id}/node": {
       "post": {
         "tags": [
           "nodes"
         ],
         "summary": "Create Node",
         "description": "Creates node. Apply logic from cluster configuration.",
-        "operationId": "create_node_create_node_post",
+        "operationId": "create_node_cluster__cluster_id__node_post",
+        "parameters": [
+          {
+            "name": "cluster_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Cluster ID",
+              "description": "Cluster to which the new node will be attached"
+            },
+            "description": "Cluster to which the new node will be attached",
+            "example": "example"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -609,34 +617,34 @@
         }
       }
     },
-    "/get-node": {
-      "post": {
+    "/cluster/{cluster_id}/node/{node_id}": {
+      "get": {
         "tags": [
           "nodes"
         ],
         "summary": "Get Node",
         "description": "Read node info and status",
-        "operationId": "get_node_get_node_post",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GetNodeRequest"
-              },
-              "examples": {
-                "vpn_reputation": {
-                  "summary": "Example Node",
-                  "description": "This example shows how to get the node info.",
-                  "value": {
-                    "cluster_id": "example",
-                    "node_id": "node0"
-                  }
-                }
-              }
+        "operationId": "get_node_cluster__cluster_id__node__node_id__get",
+        "parameters": [
+          {
+            "name": "cluster_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Cluster Id"
+            }
+          },
+          {
+            "name": "node_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Node Id"
             }
           }
-        },
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -679,36 +687,34 @@
             }
           }
         }
-      }
-    },
-    "/delete-node": {
-      "post": {
+      },
+      "delete": {
         "tags": [
           "nodes"
         ],
         "summary": "Delete Node",
         "description": "Marks node for deletion and schedules its stop.",
-        "operationId": "delete_node_delete_node_post",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DeleteNodeRequest"
-              },
-              "examples": {
-                "vpn_reputation": {
-                  "summary": "Example Node",
-                  "description": "This example shows how to delete the node.",
-                  "value": {
-                    "cluster_id": "example",
-                    "node_id": "node0"
-                  }
-                }
-              }
+        "operationId": "delete_node_cluster__cluster_id__node__node_id__delete",
+        "parameters": [
+          {
+            "name": "cluster_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Cluster Id"
+            }
+          },
+          {
+            "name": "node_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Node Id"
             }
           }
-        },
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -1001,20 +1007,6 @@
         ],
         "title": "CreateNodeResponse"
       },
-      "DeleteClusterRequest": {
-        "properties": {
-          "cluster_id": {
-            "type": "string",
-            "title": "Cluster Id"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "cluster_id"
-        ],
-        "title": "DeleteClusterRequest"
-      },
       "DeleteClusterResponse": {
         "properties": {
           "cluster": {
@@ -1026,25 +1018,6 @@
           "cluster"
         ],
         "title": "DeleteClusterResponse"
-      },
-      "DeleteNodeRequest": {
-        "properties": {
-          "cluster_id": {
-            "type": "string",
-            "title": "Cluster Id"
-          },
-          "node_id": {
-            "type": "string",
-            "title": "Node Id"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "cluster_id",
-          "node_id"
-        ],
-        "title": "DeleteNodeRequest"
       },
       "DeleteNodeResponse": {
         "properties": {
@@ -1058,20 +1031,6 @@
         ],
         "title": "DeleteNodeResponse"
       },
-      "GetClusterRequest": {
-        "properties": {
-          "cluster_id": {
-            "type": "string",
-            "title": "Cluster Id"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "cluster_id"
-        ],
-        "title": "GetClusterRequest"
-      },
       "GetClusterResponse": {
         "properties": {
           "cluster": {
@@ -1083,25 +1042,6 @@
           "cluster"
         ],
         "title": "GetClusterResponse"
-      },
-      "GetNodeRequest": {
-        "properties": {
-          "cluster_id": {
-            "type": "string",
-            "title": "Cluster Id"
-          },
-          "node_id": {
-            "type": "string",
-            "title": "Node Id"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "cluster_id",
-          "node_id"
-        ],
-        "title": "GetNodeRequest"
       },
       "GetNodeResponse": {
         "properties": {

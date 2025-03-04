@@ -33,6 +33,7 @@ from golem_workers.commands.get_proposals import (
     GetProposalsResponse,
     GetProposalsRequest,
 )
+from .list_cluster import ListClusterCommand
 
 __all__ = (
     "CreateClusterCommand",
@@ -56,4 +57,5 @@ __all__ = (
     "GetProposalsCommand",
     "GetProposalsResponse",
     "GetProposalsRequest",
+    "ListClusterCommand",
 )
