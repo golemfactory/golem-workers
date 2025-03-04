@@ -7,7 +7,7 @@ from yarl import URL
 from golem_reputation import models as m
 from golem_reputation.exceptions import GolemReputationError
 
-REPUTATION_SYSTEM_URI = URL("https://reputation.dev-test.golem.network/v1/")
+REPUTATION_SYSTEM_URI = URL("https://reputation.golem.network/v1/")
 REPUTATION_SYSTEM_PROVIDER_SCORES = "providers/scores"
 
 
