@@ -18,6 +18,16 @@ async def golem_node_context(app_key: str):
         yield golem_node
 
 
+async def get_port_allocation_manager():
+    from golem_workers.services.port_allocation import AllocationManager
+
+    port_allocation_manager = AllocationManager()
+
+    yield port_allocation_manager
+
+    await port_allocation_manager.shutdown()
+
+
 async def clusters_context():
     clusters = {}
 
@@ -102,4 +112,8 @@ class Container(DeclarativeContainer):
     delete_node_command = providers.Factory(
         commands.DeleteNodeCommand,
         clusters,
+    )
+
+    get_port_allocation_manager = providers.Resource(
+        get_port_allocation_manager,
     )

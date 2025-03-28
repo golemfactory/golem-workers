@@ -1,7 +1,7 @@
 import logging
 
 from pydantic import model_validator, Field
-from typing import Mapping, Optional
+from typing import Mapping, Optional, Dict, Any
 
 from golem.node import GolemNode
 from golem_workers.cluster import Cluster
@@ -21,6 +21,7 @@ class CreateNodeRequest(CommandRequest):
     )
     node_type: Optional[str] = "default"
     node_config: Optional[NodeConfig] = None
+    labels: Optional[Dict[str, Any]] = None
 
     @model_validator(mode="after")
     def validate_node_type_and_node_config(self):
@@ -86,7 +87,11 @@ class CreateNodeCommand(Command[CreateNodeRequest, CreateNodeResponse]):
 
         # TODO: Use ClusterRepository for creation scheduling
         node = await cluster.create_node(
-            node_config, request.node_type, request.budget_type, request.node_networks
+            node_config,
+            request.node_type,
+            request.budget_type,
+            request.node_networks,
+            labels=request.labels,
         )
 
         return CreateNodeResponse(

@@ -1,9 +1,10 @@
 from enum import Enum
-from typing import List
+from typing import List, Optional
 
-from fastapi import Request, status, APIRouter, Body
+from fastapi import Request, status, APIRouter, Body, Query
 from fastapi.params import Path
-from pydantic import BaseModel
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 from typing_extensions import Annotated
 
 from golem_workers import commands, __version__
@@ -13,6 +14,7 @@ from golem_workers.commands import (
     GetNodeRequest,
     DeleteNodeRequest,
 )
+from golem_workers.events import event_bus
 
 
 class HTTPGenericError(BaseModel):
@@ -23,6 +25,7 @@ class Tags(Enum):
     CLUSTERS = "clusters"
     NODES = "nodes"
     MISC = "misc"
+    PORTS = "ports"
 
 
 responses = {
@@ -455,3 +458,194 @@ async def delete_node(
     command = await request.app.state.container.delete_node_command()
 
     return await command(DeleteNodeRequest(cluster_id=cluster_id, node_id=node_id))
+
+
+@router.get(
+    "/events",
+    tags=[Tags.MISC],
+    description="Server-Sent Events (SSE) endpoint for receiving real-time node events",
+)
+async def events(
+    request: Request,
+    node_id: Optional[str] = Query(None, description="Filter events by node ID"),
+    cluster_id: Optional[str] = Query(None, description="Filter events by cluster ID"),
+    event_types: Optional[List[str]] = Query(
+        None,
+        description="Filter events by event types (e.g. provisioning_started, started, stopped)",
+    ),
+):
+    """
+    SSE endpoint that streams events from node background tasks.
+
+    Events include state changes (created, provisioning, provisioned, starting, started, stopping, stopped)
+    and error conditions.
+
+    You can filter events by node_id, cluster_id, and/or event_types.
+    """
+    return StreamingResponse(
+        event_bus.get_events(node_id, cluster_id, event_types),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+# Add these models after the existing models
+class PortConfigRequest(BaseModel):
+    min_port: int = Field(..., description="Minimum port number in allocation range", example=8050)
+    max_port: int = Field(..., description="Maximum port number in allocation range", example=9999)
+    expiration_minutes: Optional[int] = Field(
+        5, description="Minutes until allocation expires", example=5
+    )
+
+
+class PortConfigResponse(BaseModel):
+    min_port: int
+    max_port: int
+    expiration_minutes: int
+
+
+class PortAllocationResponse(BaseModel):
+    allocation_id: str
+    port: int
+    status: str
+    expires_at: str
+
+
+class PortUseRequest(BaseModel):
+    allocation_id: str
+    cluster_id: str
+    node_id: str
+
+
+class PortUseResponse(BaseModel):
+    port: int
+    status: str
+    cluster_id: str
+    node_id: str
+
+
+class PortReleaseResponse(BaseModel):
+    port: int
+    status: str
+
+
+class ClusterNodeReleaseRequest(BaseModel):
+    cluster_id: str
+    node_id: Optional[str] = None
+
+
+class PortsReleasedResponse(BaseModel):
+    released_ports: List[int]
+    count: int
+
+
+# Add these endpoints before the end of the file
+@router.get(
+    "/ports/config",
+    tags=[Tags.PORTS],
+    responses=responses,
+    description="Returns the current port allocation service configuration.",
+)
+async def get_port_config(request: Request) -> PortConfigResponse:
+    """Get the current port allocation configuration."""
+    manager = await request.app.state.container.get_port_allocation_manager()
+    return manager.get_config()
+
+
+@router.post(
+    "/ports/allocate",
+    tags=[Tags.PORTS],
+    responses=responses,
+    description="Allocates a random available port in the configured range.",
+)
+async def allocate_port(request: Request) -> PortAllocationResponse:
+    """Allocate a random available port."""
+    manager = await request.app.state.container.get_port_allocation_manager()
+    return manager.allocate_port()
+
+
+@router.post(
+    "/ports/use",
+    tags=[Tags.PORTS],
+    responses={**responses, **not_found_responses},
+    description="Assigns a previously allocated port to a specific cluster and node.",
+)
+async def use_port(
+    request_data: PortUseRequest,
+    request: Request,
+) -> PortUseResponse:
+    """Mark a port as in use by a specific cluster and node."""
+    manager = await request.app.state.container.get_port_allocation_manager()
+    return manager.use_port(
+        request_data.allocation_id,
+        request_data.cluster_id,
+        request_data.node_id,
+    )
+
+
+@router.delete(
+    "/ports/{allocation_id}",
+    tags=[Tags.PORTS],
+    responses={**responses, **not_found_responses},
+    description="Releases a port back to the available pool.",
+)
+async def cancel_port_allocation(
+    allocation_id: str,
+    request: Request,
+) -> PortReleaseResponse:
+    """Cancel a port allocation and release the port."""
+    manager = await request.app.state.container.get_port_allocation_manager()
+    return manager.cancel_allocation(allocation_id)
+
+
+@router.get(
+    "/ports",
+    tags=[Tags.PORTS],
+    responses=responses,
+    description="Lists all port allocations with optional filtering.",
+)
+async def list_port_allocations(
+    request: Request,
+    status: Optional[str] = Query(None, description="Filter by status (allocated or in_use)"),
+    cluster_id: Optional[str] = Query(None, description="Filter by cluster ID"),
+    node_id: Optional[str] = Query(None, description="Filter by node ID"),
+) -> List[PortAllocationResponse]:
+    """List all port allocations with optional filtering."""
+    manager = await request.app.state.container.get_port_allocation_manager()
+    return manager.list_allocations(status, cluster_id, node_id)
+
+
+@router.get(
+    "/ports/{allocation_id}",
+    tags=[Tags.PORTS],
+    responses={**responses, **not_found_responses},
+    description="Returns details about a specific port allocation.",
+)
+async def get_port_allocation(
+    allocation_id: str,
+    request: Request,
+) -> PortAllocationResponse:
+    """Get details about a specific port allocation."""
+    manager = await request.app.state.container.get_port_allocation_manager()
+    return manager.get_allocation(allocation_id)
+
+
+@router.delete(
+    "/ports/release",
+    tags=[Tags.PORTS],
+    responses=responses,
+    description="Releases all ports associated with a cluster or node.",
+)
+async def release_ports_by_cluster_node(
+    request_data: ClusterNodeReleaseRequest,
+    request: Request,
+) -> PortsReleasedResponse:
+    """Release all ports associated with a cluster or node."""
+    manager = await request.app.state.container.get_port_allocation_manager()
+    return manager.release_ports_by_cluster_node(
+        request_data.cluster_id,
+        request_data.node_id,
+    )

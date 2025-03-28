@@ -278,6 +278,8 @@ class Cluster:
         node_type: str,
         budget_type: str,
         node_networks: Mapping[str, NodeNetworkConfig],
+        *,
+        labels: Dict[str, Any] = None,
     ) -> Node:
         node_id = self._get_new_node_id()
 
@@ -300,6 +302,8 @@ class Cluster:
             budget=budget,
             manager_stack=manager_stack,
             networks=networks,
+            cluster_id=self._cluster_id,
+            labels=labels,
         )
 
         node.schedule_provision()

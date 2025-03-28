@@ -23,25 +23,23 @@ class GetProposalsRequest(CommandRequest):
     # New parameters format
     subnet: Optional[str] = Field(
         default=None,
-        description="The subnet to use for gathering proposals. Specify a subnet tag to filter providers."
+        description="The subnet to use for gathering proposals. Specify a subnet tag to filter providers.",
     )
     payment_network: Optional[PaymentNetwork] = Field(
         default=None,
         description="Payment network to use for the proposals. Available networks: mainnet, sepolia, rinkeby, goerli, "
-                    "holesky, polygon, mumbai, amoy."
+        "holesky, polygon, mumbai, amoy.",
     )
     runtime: Optional[str] = Field(
-        default=None,
-        description="The runtime environment to use (e.g., 'vm', 'wasm')."
+        default=None, description="The runtime environment to use (e.g., 'vm', 'wasm')."
     )
     gpu_model: Optional[str] = Field(
-        default=None,
-        description="Filter proposals by specific GPU model requirements."
+        default=None, description="Filter proposals by specific GPU model requirements."
     )
     collection_time_seconds: float = Field(
         default=5,
         description="Number of seconds of how long proposals should be gathered on the market. Too small value can "
-                    "result in less or even no proposals.",
+        "result in less or even no proposals.",
     )
 
 
@@ -52,7 +50,11 @@ class GetProposalsResponse(CommandResponse):
 class GetProposalsCommand(Command[GetProposalsRequest, GetProposalsResponse]):
     CONSTRAINTS_DELIMITER = ""
 
-    def __init__(self, golem_node: GolemNode, _temp_payment_manager_factory: Callable[..., PaymentManager],) -> None:
+    def __init__(
+        self,
+        golem_node: GolemNode,
+        _temp_payment_manager_factory: Callable[..., PaymentManager],
+    ) -> None:
         self._golem_node = golem_node
 
     async def __call__(self, request: GetProposalsRequest) -> GetProposalsResponse:
@@ -60,9 +62,11 @@ class GetProposalsCommand(Command[GetProposalsRequest, GetProposalsResponse]):
 
         # Transform offers into ProposalOut format
         proposals = []
-        print('constraints_expression:', constraints_expression)
+        print("constraints_expression:", constraints_expression)
 
-        async for offer_data in self._golem_node.scan(quick_scan=True, constraints=constraints_expression):
+        async for offer_data in self._golem_node.scan(
+            quick_scan=True, constraints=constraints_expression
+        ):
             proposals.append(
                 ProposalOut(
                     proposal_id=offer_data.offerId,
@@ -79,7 +83,7 @@ class GetProposalsCommand(Command[GetProposalsRequest, GetProposalsResponse]):
 
         if request.payment_network:
             network = request.payment_network
-            token = 'glm' if network in {PaymentNetwork.MAINNET, PaymentNetwork.POLYGON}  else 'tglm'
+            token = "glm" if network in {PaymentNetwork.MAINNET, PaymentNetwork.POLYGON} else "tglm"
             constraints.append(f"(golem.com.payment.platform.erc20-{network}-{token}.address=*)")
 
         if request.subnet:

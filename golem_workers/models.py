@@ -359,13 +359,11 @@ class NodeOut(BaseModel):
 
     node_id: str
     state: NodeState
+    labels: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
     @classmethod
     def from_node(cls, node: "Node") -> "NodeOut":
-        return cls(
-            node_id=node.node_id,
-            state=node.state,
-        )
+        return cls(node_id=node.node_id, state=node.state, labels=node.labels)
 
 
 class ClusterOut(BaseModel):
