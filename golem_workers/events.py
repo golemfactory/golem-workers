@@ -31,14 +31,17 @@ class EventBus:
     def _initialize(self):
         self.subscribers: Set[asyncio.Queue] = set()
         self.history: List[NodeEvent] = []
-        self.history_limit = 1000  # Keep last 1000 events
+        self.history_retention_seconds = 5.0  # Keep events for 5 seconds max
 
     def emit(self, event: NodeEvent):
         """Emit an event to all subscribers."""
         # Add to history
         self.history.append(event)
-        if len(self.history) > self.history_limit:
-            self.history = self.history[-self.history_limit :]
+
+        # Clean up old events based on time
+        current_time = time.time()
+        self.history = [e for e in self.history
+                        if current_time - e.timestamp <= self.history_retention_seconds]
 
         # Distribute to subscribers
         for queue in self.subscribers:
@@ -56,17 +59,20 @@ class EventBus:
             self.subscribers.remove(queue)
 
     async def get_events(
-        self,
-        node_id: Optional[str] = None,
-        cluster_id: Optional[str] = None,
-        event_types: Optional[List[str]] = None,
+            self,
+            node_id: Optional[str] = None,
+            cluster_id: Optional[str] = None,
+            event_types: Optional[List[str]] = None,
     ) -> AsyncIterator[str]:
         """Get events as an async iterator, optionally filtered."""
         queue = self.subscribe()
         try:
             # First yield historical events that match the filter
+            current_time = time.time()
             for event in self.history:
-                if self._matches_filter(event, node_id, cluster_id, event_types):
+                # Only include events that are not expired and match the filter
+                if (current_time - event.timestamp <= self.history_retention_seconds and
+                        self._matches_filter(event, node_id, cluster_id, event_types)):
                     yield self._format_sse_event(event)
 
             # Then yield new events as they come in
@@ -78,11 +84,11 @@ class EventBus:
             self.unsubscribe(queue)
 
     def _matches_filter(
-        self,
-        event: NodeEvent,
-        node_id: Optional[str],
-        cluster_id: Optional[str],
-        event_types: Optional[List[str]],
+            self,
+            event: NodeEvent,
+            node_id: Optional[str],
+            cluster_id: Optional[str],
+            event_types: Optional[List[str]],
     ) -> bool:
         """Check if an event matches the provided filters."""
         if node_id and event.node_id != node_id:
@@ -104,7 +110,7 @@ event_bus = EventBus()
 
 
 def emit_node_event(
-    node_id: str, event_type: str, data: Dict[str, Any], cluster_id: Optional[str] = None
+        node_id: str, event_type: str, data: Dict[str, Any], cluster_id: Optional[str] = None
 ):
     """Emit a node event to the event bus."""
     event = NodeEvent(
