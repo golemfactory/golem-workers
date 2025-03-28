@@ -1,7 +1,7 @@
 import asyncio
 
 from pydantic import Field
-from typing import Mapping, MutableMapping, Optional
+from typing import Mapping, MutableMapping, Optional, Dict, Any
 
 from golem.node import GolemNode
 from golem_workers.cluster import Cluster
@@ -19,6 +19,12 @@ from golem_workers.models import (
 
 class CreateClusterRequest(CommandRequest):
     cluster_id: str = "default"
+
+    labels: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Metadata labels for the cluster in key-value format.",
+    )
+
     payment_config: PaymentConfig = Field(
         default_factory=PaymentConfig,
         description="Payment configuration that will be applied on the whole cluster. Can be replaced by `payment_config` in `budget_types`.",
@@ -76,6 +82,7 @@ class CreateClusterCommand(Command[CreateClusterRequest, CreateClusterResponse])
                 allocation_config=request.allocation_config,
                 network_types=request.network_types,
                 node_types=request.node_types,
+                labels=request.labels,
             )
 
             cluster.schedule_start()

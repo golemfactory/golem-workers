@@ -432,7 +432,7 @@ async def get_node(
 )
 async def delete_node(
     cluster_id: str,
-        node_id: str,
+    node_id: str,
     request: Request,
 ) -> commands.DeleteNodeResponse:
     command = await request.app.state.container.delete_node_command()

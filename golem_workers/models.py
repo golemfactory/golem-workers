@@ -4,7 +4,7 @@ import collections.abc
 from copy import deepcopy
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, List, Mapping, Optional, Union, Tuple, Sequence
+from typing import TYPE_CHECKING, Any, List, Mapping, Optional, Union, Tuple, Sequence, Dict
 
 import dpath
 from typing_extensions import Annotated
@@ -376,6 +376,7 @@ class ClusterOut(BaseModel):
     cluster_id: str
     state: ClusterState
     nodes: Mapping[str, NodeOut]
+    labels: Dict[str, Any] = Field(default_factory=dict)
 
     @classmethod
     def from_cluster(cls, cluster: "Cluster") -> "ClusterOut":
@@ -383,6 +384,7 @@ class ClusterOut(BaseModel):
             cluster_id=cluster.cluster_id,
             state=cluster.state,
             nodes={node_id: NodeOut.from_node(node) for node_id, node in cluster.nodes.items()},
+            labels=cluster.labels,
         )
 
 
