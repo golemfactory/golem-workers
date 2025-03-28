@@ -1,12 +1,8 @@
-import asyncio
-
+from golem.managers import PaymentManager
 from golem.payload import Properties
 from pydantic import Field
-from typing import List, Optional
-
-from golem.managers import ProposalScoringMixin
+from typing import List, Optional, Callable
 from golem.node import GolemNode
-from golem.resources import MarketScanner
 from golem_workers.commands.base import Command, CommandRequest, CommandResponse
 from golem_workers.models import MarketConfig, ProposalOut, PaymentConfig, ImportableBudget
 
@@ -38,19 +34,18 @@ class GetProposalsResponse(CommandResponse):
 class GetProposalsCommand(Command[GetProposalsRequest, GetProposalsResponse]):
     """Reads proposals from Golem Network based on given `market_config` using offline market scanning."""
 
-    def __init__(self, golem_node: GolemNode) -> None:
+    def __init__(self, golem_node: GolemNode, _temp_payment_manager_factory: Callable[..., PaymentManager],) -> None:
         self._golem_node = golem_node
 
     async def __call__(self, request: GetProposalsRequest) -> GetProposalsResponse:
-
         # Transform offers into ProposalOut format
         proposals = []
-        async for offer_data in self._golem_node.scan():
+        async for offer_data in self._golem_node.scan(quick_scan=True):
             proposals.append(
                 ProposalOut(
                     proposal_id=offer_data.offerId,
                     issuer_id=offer_data.providerId,
-                    state='Draft',
+                    state="Draft",
                     timestamp=offer_data.timestamp,
                     properties=Properties(offer_data.properties),
                 )
