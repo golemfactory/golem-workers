@@ -7,7 +7,12 @@ from pydantic import BaseModel
 from typing_extensions import Annotated
 
 from golem_workers import commands, __version__
-from golem_workers.commands import GetClusterRequest, DeleteClusterRequest, GetNodeRequest, DeleteNodeRequest
+from golem_workers.commands import (
+    GetClusterRequest,
+    DeleteClusterRequest,
+    GetNodeRequest,
+    DeleteNodeRequest,
+)
 
 
 class HTTPGenericError(BaseModel):
@@ -126,7 +131,9 @@ async def get_proposals(
 
 
 @router.get("/cluster", tags=[Tags.CLUSTERS])
-async def list_clusters(request: Request) -> Annotated[List[str], Body(examples=[["cluster1", "cluster2"]])]:
+async def list_clusters(
+    request: Request,
+) -> Annotated[List[str], Body(examples=[["cluster1", "cluster2"]])]:
     """
     Lists available clusters
     """
@@ -252,10 +259,10 @@ async def create_cluster(
 )
 async def get_cluster(
     request: Request,
-
+    cluster_id: str,
 ) -> commands.GetClusterResponse:
     command = await request.app.state.container.get_cluster_command()
-    request_data = GetClusterRequest(cluster_id = cluster_id)
+    request_data = GetClusterRequest(cluster_id=cluster_id)
 
     return await command(request_data)
 
@@ -268,7 +275,12 @@ async def get_cluster(
 )
 async def delete_cluster(
     request: Request,
-    cluster_id : str = Path(..., title="Cluster ID", description="cluster identifier given in create-cluster operation", example="example"),
+    cluster_id: str = Path(
+        ...,
+        title="Cluster ID",
+        description="cluster identifier given in create-cluster operation",
+        example="example",
+    ),
 ) -> commands.DeleteClusterResponse:
     command = await request.app.state.container.delete_cluster_command()
 
@@ -401,7 +413,12 @@ async def create_node(
         ),
     ],
     request: Request,
-    cluster_id : str = Path(..., title="Cluster ID", description="Cluster to which the new node will be attached", example="example"),
+    cluster_id: str = Path(
+        ...,
+        title="Cluster ID",
+        description="Cluster to which the new node will be attached",
+        example="example",
+    ),
 ) -> commands.CreateNodeResponse:
     command = await request.app.state.container.create_node_command()
 
@@ -415,8 +432,8 @@ async def create_node(
     description=commands.GetNodeCommand.__doc__,
 )
 async def get_node(
-        cluster_id: str,
-        node_id: str,
+    cluster_id: str,
+    node_id: str,
     request: Request,
 ) -> commands.GetNodeResponse:
     command = await request.app.state.container.get_node_command()
@@ -432,7 +449,7 @@ async def get_node(
 )
 async def delete_node(
     cluster_id: str,
-        node_id: str,
+    node_id: str,
     request: Request,
 ) -> commands.DeleteNodeResponse:
     command = await request.app.state.container.delete_node_command()
