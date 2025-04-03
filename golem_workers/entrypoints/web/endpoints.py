@@ -1,20 +1,26 @@
 from enum import Enum
 from typing import List, Optional
 
-from fastapi import Request, status, APIRouter, Body, Query
-from fastapi.params import Path
+from fastapi import APIRouter, Body, Depends, Path, Query, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from typing_extensions import Annotated
 
-from golem_workers import commands, __version__
-from golem_workers.commands import (
-    GetClusterRequest,
-    DeleteClusterRequest,
-    GetNodeRequest,
-    DeleteNodeRequest,
+from golem_workers import __version__
+from golem_workers import commands
+from golem_workers.entrypoints.web.dependencies import (
+    get_proposal_service,
+    get_cluster_service,
+    get_node_service,
+    get_port_allocation_service,
 )
 from golem_workers.events import event_bus
+from golem_workers.services.interfaces import (
+    IProposalService,
+    IClusterService,
+    INodeService,
+    IPortAllocationService,
+)
 
 
 class HTTPGenericError(BaseModel):
@@ -73,75 +79,23 @@ async def get_proposals(
                         },
                     },
                 },
-                "minimal_gpu": {
-                    "summary": "Single GPU",
-                    "description": "This example shows how to select providers for Virtual Machine with any GPU support.",
-                    "value": {
-                        "market_config": {
-                            "demand": {
-                                "payloads": [
-                                    {
-                                        "golem_workers.payloads.ClusterNodePayload": {
-                                            "runtime": "vm-nvidia",
-                                            "min_mem_gib": 16,
-                                            "min_storage_gib": 20,
-                                            "outbound_urls": [
-                                                "https://gpu-provider.dev.golem.network",
-                                            ],
-                                        },
-                                    },
-                                ],
-                                "constraints": [
-                                    "golem.!exp.gap-35.v1.inf.gpu.model=*",
-                                ],
-                            },
-                        },
-                    },
-                },
-                "multi_gpu": {
-                    "summary": "Multiple GPU",
-                    "description": "This example shows how to select providers for Virtual Machine with multiple GPU support.",
-                    "value": {
-                        "market_config": {
-                            "demand": {
-                                "payloads": [
-                                    {
-                                        "golem_workers.payloads.ClusterNodePayload": {
-                                            "runtime": "vm-nvidia",
-                                            "min_mem_gib": 16,
-                                            "min_storage_gib": 20,
-                                            "outbound_urls": [
-                                                "https://gpu-provider.dev.golem.network",
-                                            ],
-                                        },
-                                    },
-                                ],
-                                "constraints": [
-                                    "golem.!exp.gap-35.v1.inf.gpu.d0.quantity>=2",
-                                ],
-                            },
-                        },
-                    },
-                },
             }
         ),
     ],
-    request: Request,
+    proposal_service: IProposalService = Depends(get_proposal_service),
 ) -> commands.GetProposalsResponse:
-    command = await request.app.state.container.get_proposal_command()
-
-    return await command(request_data)
+    proposals = await proposal_service.get_proposals(request_data)
+    return commands.GetProposalsResponse(proposals=proposals)
 
 
 @router.get("/cluster", tags=[Tags.CLUSTERS])
 async def list_clusters(
-    request: Request,
+    cluster_service: IClusterService = Depends(get_cluster_service),
 ) -> Annotated[List[str], Body(examples=[["cluster1", "cluster2"]])]:
     """
     Lists available clusters
     """
-    command = await request.app.state.container.list_cluster_command()
-    return await command()
+    return await cluster_service.list_clusters()
 
 
 @router.post(
@@ -157,7 +111,7 @@ async def create_cluster(
             openapi_examples={
                 "testnet_linear_budget_vpn_reputation": {
                     "summary": "Average usage budget, VPN and reputation (testnet)",
-                    "description": "This example shows how to create a testnet cluster that support average usage budget, simple VPN network and Golem Reputation integration. Note that to use this example, integration with Golem Reputation is required at Golem Workers startup - refer to README for more information.",
+                    "description": "This example shows how to create a testnet cluster that support average usage budget, simple VPN network and Golem Reputation integration.",
                     "value": {
                         "cluster_id": "example",
                         "budget_types": {
@@ -175,71 +129,6 @@ async def create_cluster(
                         "network_types": {
                             "default": {
                                 "ip": "192.168.0.0/16",
-                            },
-                        },
-                        "node_types": {
-                            "default": {
-                                "market_config": {
-                                    "filters": [
-                                        {
-                                            "golem_reputation.ProviderBlacklistPlugin": {
-                                                "payment_network": "holesky",
-                                            },
-                                        },
-                                    ],
-                                    "sorters": [
-                                        {
-                                            "golem_reputation.ReputationScorer": {
-                                                "payment_network": "holesky",
-                                            },
-                                        },
-                                    ],
-                                },
-                            },
-                        },
-                    },
-                },
-                "mainnet_linear_budget_vpn_reputation": {
-                    "summary": "Average usage budget, VPN and reputation (mainnet)",
-                    "description": "This example shows how to create a mainnet cluster that support average usage budget, simple VPN network and Golem Reputation integration. Note that to use this example, integration with Golem Reputation is required at Golem Workers startup - refer to README for more information.",
-                    "value": {
-                        "cluster_id": "example",
-                        "payment_config": {"network": "polygon"},
-                        "budget_types": {
-                            "default": {
-                                "budget": {
-                                    "golem_workers.budgets.AveragePerCpuUsageLinearModelBudget": {
-                                        "average_cpu_load": 1.0,
-                                        "average_duration_hours": 0.5,
-                                        "average_max_cost": 1.5,
-                                    },
-                                },
-                                "scope": "cluster",
-                            },
-                        },
-                        "network_types": {
-                            "default": {
-                                "ip": "192.168.0.0/16",
-                            },
-                        },
-                        "node_types": {
-                            "default": {
-                                "market_config": {
-                                    "filters": [
-                                        {
-                                            "golem_reputation.ProviderBlacklistPlugin": {
-                                                "payment_network": "polygon",
-                                            },
-                                        },
-                                    ],
-                                    "sorters": [
-                                        {
-                                            "golem_reputation.ReputationScorer": {
-                                                "payment_network": "polygon",
-                                            },
-                                        },
-                                    ],
-                                },
                             },
                         },
                     },
@@ -247,11 +136,10 @@ async def create_cluster(
             },
         ),
     ],
-    request: Request,
+    cluster_service: IClusterService = Depends(get_cluster_service),
 ) -> commands.CreateClusterResponse:
-    command = await request.app.state.container.create_cluster_command()
-
-    return await command(request_data)
+    cluster = await cluster_service.create_cluster(request_data)
+    return commands.CreateClusterResponse(cluster=cluster)
 
 
 @router.get(
@@ -261,13 +149,11 @@ async def create_cluster(
     description=commands.GetClusterCommand.__doc__,
 )
 async def get_cluster(
-    request: Request,
     cluster_id: str,
+    cluster_service: IClusterService = Depends(get_cluster_service),
 ) -> commands.GetClusterResponse:
-    command = await request.app.state.container.get_cluster_command()
-    request_data = GetClusterRequest(cluster_id=cluster_id)
-
-    return await command(request_data)
+    cluster = await cluster_service.get_cluster(cluster_id)
+    return commands.GetClusterResponse(cluster=cluster)
 
 
 @router.delete(
@@ -277,17 +163,16 @@ async def get_cluster(
     description=commands.DeleteClusterCommand.__doc__,
 )
 async def delete_cluster(
-    request: Request,
     cluster_id: str = Path(
         ...,
         title="Cluster ID",
         description="cluster identifier given in create-cluster operation",
         example="example",
     ),
+    cluster_service: IClusterService = Depends(get_cluster_service),
 ) -> commands.DeleteClusterResponse:
-    command = await request.app.state.container.delete_cluster_command()
-
-    return await command(DeleteClusterRequest(cluster_id=cluster_id))
+    result = await cluster_service.delete_cluster(cluster_id)
+    return commands.DeleteClusterResponse(cluster=result["cluster"])
 
 
 @router.post(
@@ -306,7 +191,7 @@ async def create_node(
             openapi_examples={
                 "echo_test": {
                     "summary": "modelserve/echo-test:2",
-                    "description": "This example shows how to run echo test. It will use a VPN and proxy traffic from local machine to running vm at http://localhost:8080.",
+                    "description": "This example shows how to run echo test with VPN",
                     "value": {
                         "cluster_id": "example",
                         "node_networks": {
@@ -326,106 +211,22 @@ async def create_node(
                                     ],
                                 },
                             },
-                            "on_start_commands": [
-                                {
-                                    "golem_workers.work.deploy_and_start_activity": {
-                                        "deploy_timeout_minutes": 60,
-                                    },
-                                },
-                                {
-                                    "golem_workers.work.run_in_shell": [
-                                        ["nginx"],
-                                    ],
-                                },
-                            ],
-                            "sidecars": [
-                                {
-                                    "golem_workers.sidecars.WebsocatPortTunnelSidecar": {
-                                        "network_name": "default",
-                                        "local_port": "8080",
-                                        "remote_port": "80",
-                                    },
-                                },
-                            ],
-                        },
-                    },
-                },
-                "automatic": {
-                    "summary": "modelserve/automatic1111:4",
-                    "description": "This example shows how to run automatic with example model image. Automatic will take few minutes to download example model from Huggingface to provider. It will use a VPN and proxy traffic from local machine to running vm at http://localhost:8080.",
-                    "value": {
-                        "cluster_id": "example",
-                        "node_networks": {
-                            "default": {
-                                "ip": None,
-                            },
-                        },
-                        "node_config": {
-                            "market_config": {
-                                "demand": {
-                                    "payloads": [
-                                        {
-                                            "golem_workers.payloads.ClusterNodePayload": {
-                                                "runtime": "vm-nvidia",
-                                                "image_tag": "modelserve/automatic1111:4",
-                                                "outbound_urls": [
-                                                    "https://gpu-provider.dev.golem.network",
-                                                ],
-                                            },
-                                        },
-                                    ],
-                                },
-                            },
-                            "on_start_commands": [
-                                {
-                                    "golem_workers.work.deploy_and_start_activity": {
-                                        "deploy_timeout_minutes": 60,
-                                    },
-                                },
-                                {
-                                    "golem_workers.work.prepare_and_run_ssh_server": {
-                                        "ssh_private_key_path": "/tmp/ssh_key",
-                                    },
-                                },
-                                {
-                                    "golem_workers.work.run_in_shell": [
-                                        "cd /usr/src/app/ && ./start.sh --model_url https://gpu-provider.dev.golem.network/models/v1-5-pruned-emaonly.safetensors > /usr/src/app/output/log 2>&1 &",
-                                    ],
-                                },
-                            ],
-                            "sidecars": [
-                                {
-                                    "golem_workers.sidecars.WebsocatPortTunnelSidecar": {
-                                        "network_name": "default",
-                                        "local_port": "8080",
-                                        "remote_port": "8000",
-                                    }
-                                },
-                                {
-                                    "golem_workers.sidecars.WebsocatPortTunnelSidecar": {
-                                        "network_name": "default",
-                                        "local_port": "8081",
-                                        "remote_port": "8001",
-                                    },
-                                },
-                            ],
                         },
                     },
                 },
             },
         ),
     ],
-    request: Request,
     cluster_id: str = Path(
         ...,
         title="Cluster ID",
         description="Cluster to which the new node will be attached",
         example="example",
     ),
+    node_service: INodeService = Depends(get_node_service),
 ) -> commands.CreateNodeResponse:
-    command = await request.app.state.container.create_node_command()
-
-    return await command(request_data)
+    node = await node_service.create_node(request_data)
+    return commands.CreateNodeResponse(node=node)
 
 
 @router.get(
@@ -437,11 +238,10 @@ async def create_node(
 async def get_node(
     cluster_id: str,
     node_id: str,
-    request: Request,
+    node_service: INodeService = Depends(get_node_service),
 ) -> commands.GetNodeResponse:
-    command = await request.app.state.container.get_node_command()
-
-    return await command(GetNodeRequest(cluster_id=cluster_id, node_id=node_id))
+    node = await node_service.get_node(cluster_id, node_id)
+    return commands.GetNodeResponse(node=node)
 
 
 @router.delete(
@@ -453,11 +253,10 @@ async def get_node(
 async def delete_node(
     cluster_id: str,
     node_id: str,
-    request: Request,
+    node_service: INodeService = Depends(get_node_service),
 ) -> commands.DeleteNodeResponse:
-    command = await request.app.state.container.delete_node_command()
-
-    return await command(DeleteNodeRequest(cluster_id=cluster_id, node_id=node_id))
+    result = await node_service.delete_node(cluster_id, node_id)
+    return commands.DeleteNodeResponse(node=result["node"])
 
 
 @router.get(
@@ -492,7 +291,7 @@ async def events(
     )
 
 
-# Add these models after the existing models
+# Port allocation endpoints
 class PortConfigRequest(BaseModel):
     min_port: int = Field(..., description="Minimum port number in allocation range", example=8050)
     max_port: int = Field(..., description="Maximum port number in allocation range", example=9999)
@@ -542,17 +341,17 @@ class PortsReleasedResponse(BaseModel):
     count: int
 
 
-# Add these endpoints before the end of the file
 @router.get(
     "/ports/config",
     tags=[Tags.PORTS],
     responses=responses,
     description="Returns the current port allocation service configuration.",
 )
-async def get_port_config(request: Request) -> PortConfigResponse:
+async def get_port_config(
+    port_service: IPortAllocationService = Depends(get_port_allocation_service),
+) -> PortConfigResponse:
     """Get the current port allocation configuration."""
-    manager = await request.app.state.container.get_port_allocation_manager()
-    return manager.get_config()
+    return port_service.get_config()
 
 
 @router.post(
@@ -561,10 +360,11 @@ async def get_port_config(request: Request) -> PortConfigResponse:
     responses=responses,
     description="Allocates a random available port in the configured range.",
 )
-async def allocate_port(request: Request) -> PortAllocationResponse:
+async def allocate_port(
+    port_service: IPortAllocationService = Depends(get_port_allocation_service),
+) -> PortAllocationResponse:
     """Allocate a random available port."""
-    manager = await request.app.state.container.get_port_allocation_manager()
-    return manager.allocate_port()
+    return port_service.allocate_port()
 
 
 @router.post(
@@ -575,11 +375,10 @@ async def allocate_port(request: Request) -> PortAllocationResponse:
 )
 async def use_port(
     request_data: PortUseRequest,
-    request: Request,
+    port_service: IPortAllocationService = Depends(get_port_allocation_service),
 ) -> PortUseResponse:
     """Mark a port as in use by a specific cluster and node."""
-    manager = await request.app.state.container.get_port_allocation_manager()
-    return manager.use_port(
+    return port_service.use_port(
         request_data.allocation_id,
         request_data.cluster_id,
         request_data.node_id,
@@ -594,11 +393,10 @@ async def use_port(
 )
 async def cancel_port_allocation(
     allocation_id: str,
-    request: Request,
+    port_service: IPortAllocationService = Depends(get_port_allocation_service),
 ) -> PortReleaseResponse:
     """Cancel a port allocation and release the port."""
-    manager = await request.app.state.container.get_port_allocation_manager()
-    return manager.cancel_allocation(allocation_id)
+    return port_service.cancel_allocation(allocation_id)
 
 
 @router.get(
@@ -608,14 +406,13 @@ async def cancel_port_allocation(
     description="Lists all port allocations with optional filtering.",
 )
 async def list_port_allocations(
-    request: Request,
+    port_service: IPortAllocationService = Depends(get_port_allocation_service),
     status: Optional[str] = Query(None, description="Filter by status (allocated or in_use)"),
     cluster_id: Optional[str] = Query(None, description="Filter by cluster ID"),
     node_id: Optional[str] = Query(None, description="Filter by node ID"),
 ) -> List[PortAllocationResponse]:
     """List all port allocations with optional filtering."""
-    manager = await request.app.state.container.get_port_allocation_manager()
-    return manager.list_allocations(status, cluster_id, node_id)
+    return port_service.list_allocations(status, cluster_id, node_id)
 
 
 @router.get(
@@ -626,11 +423,10 @@ async def list_port_allocations(
 )
 async def get_port_allocation(
     allocation_id: str,
-    request: Request,
+    port_service: IPortAllocationService = Depends(get_port_allocation_service),
 ) -> PortAllocationResponse:
     """Get details about a specific port allocation."""
-    manager = await request.app.state.container.get_port_allocation_manager()
-    return manager.get_allocation(allocation_id)
+    return port_service.get_allocation(allocation_id)
 
 
 @router.delete(
@@ -641,11 +437,10 @@ async def get_port_allocation(
 )
 async def release_ports_by_cluster_node(
     request_data: ClusterNodeReleaseRequest,
-    request: Request,
+    port_service: IPortAllocationService = Depends(get_port_allocation_service),
 ) -> PortsReleasedResponse:
     """Release all ports associated with a cluster or node."""
-    manager = await request.app.state.container.get_port_allocation_manager()
-    return manager.release_ports_by_cluster_node(
+    return port_service.release_ports_by_cluster_node(
         request_data.cluster_id,
         request_data.node_id,
     )

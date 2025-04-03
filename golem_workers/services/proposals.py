@@ -26,9 +26,9 @@ class PaymentNetwork(str, Enum):
 
 class ProposalService(IProposalService):
     """Service for managing proposals."""
-    
+
     CONSTRAINTS_DELIMITER = ""
-    
+
     def __init__(
         self,
         golem_node: GolemNode,
@@ -36,15 +36,15 @@ class ProposalService(IProposalService):
     ) -> None:
         self._golem_node = golem_node
         self._payment_manager_factory = payment_manager_factory
-    
+
     async def get_proposals(self, request_data) -> List[ProposalOut]:
         """Get proposals based on request parameters."""
         constraints_expression = self._build_constraints_expression(request_data)
-        
+
         # Transform offers into ProposalOut format
         proposals = []
         logger.debug("constraints_expression: %s", constraints_expression)
-        
+
         async for offer_data in self._golem_node.scan(
             quick_scan=True, constraints=constraints_expression
         ):
@@ -58,22 +58,22 @@ class ProposalService(IProposalService):
                 )
             )
         return proposals
-    
+
     def _build_constraints_expression(self, request_data) -> Optional[str]:
         constraints = []
-        
-        if hasattr(request_data, 'payment_network') and request_data.payment_network:
+
+        if hasattr(request_data, "payment_network") and request_data.payment_network:
             network = request_data.payment_network
             token = "glm" if network in {PaymentNetwork.MAINNET, PaymentNetwork.POLYGON} else "tglm"
             constraints.append(f"(golem.com.payment.platform.erc20-{network}-{token}.address=*)")
-        
-        if hasattr(request_data, 'subnet') and request_data.subnet:
+
+        if hasattr(request_data, "subnet") and request_data.subnet:
             constraints.append(f"(golem.node.debug.subnet={request_data.subnet})")
-        
-        if hasattr(request_data, 'runtime') and request_data.runtime:
+
+        if hasattr(request_data, "runtime") and request_data.runtime:
             constraints.append(f"(golem.runtime.name={request_data.runtime})")
-        
-        if hasattr(request_data, 'gpu_model') and request_data.gpu_model:
+
+        if hasattr(request_data, "gpu_model") and request_data.gpu_model:
             constraints.append(f"(golem.inf.gpu.d0.model={request_data.gpu_model})")
-        
+
         return f"(&{self.CONSTRAINTS_DELIMITER.join(constraints)})" if constraints else None

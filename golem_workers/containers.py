@@ -6,9 +6,15 @@ from dependency_injector import providers
 from dependency_injector.containers import DeclarativeContainer
 
 from golem.node import GolemNode
-from golem_workers import commands
 from golem_workers.golem import DriverListAllocationPaymentManager
 from golem_workers.models import ImportableContext
+from golem_workers.services import (
+    ProposalService,
+    ClusterService,
+    NodeService,
+    PortAllocationService,
+)
+from golem_workers.services.port_allocation import AllocationManager
 
 
 async def golem_node_context(app_key: str):
@@ -19,8 +25,6 @@ async def golem_node_context(app_key: str):
 
 
 async def get_port_allocation_manager():
-    from golem_workers.services.port_allocation import AllocationManager
-
     port_allocation_manager = AllocationManager()
 
     yield port_allocation_manager
@@ -51,12 +55,49 @@ async def global_contexts_context(global_contexts: Sequence[ImportableContext]):
         yield
 
 
+class ServicesContainer(DeclarativeContainer):
+    """Container for service providers."""
+
+    # Dependencies from parent container
+    config = providers.Configuration()
+    golem_node = providers.Dependency()
+    clusters = providers.Dependency()
+    clusters_lock = providers.Dependency()
+    port_allocation_manager = providers.Dependency()
+
+    # Service providers
+    proposal_service = providers.Factory(
+        ProposalService,
+        golem_node=golem_node,
+        payment_manager_factory=DriverListAllocationPaymentManager,
+    )
+
+    cluster_service = providers.Factory(
+        ClusterService,
+        golem_node=golem_node,
+        clusters_lock=clusters_lock,
+        clusters=clusters,
+    )
+
+    node_service = providers.Factory(
+        NodeService,
+        golem_node=golem_node,
+        clusters=clusters,
+    )
+
+    port_allocation_service = providers.Factory(
+        PortAllocationService,
+        allocation_manager=port_allocation_manager,
+    )
+
+
 class Container(DeclarativeContainer):
-    # Use built-in way for pydantic settings loading after
-    # https://github.com/ets-labs/python-dependency-injector/issues/755
-    # settings = providers.Configuration(pydantic_settings=[Settings()])
+    """Main application container."""
+
+    # Configuration
     settings = providers.Configuration()
 
+    # Resources
     global_contexts = providers.Resource(
         global_contexts_context,
         settings.global_contexts,
@@ -67,53 +108,19 @@ class Container(DeclarativeContainer):
         app_key=settings.yagna_appkey,
     )
 
-    clusters = providers.Resource(
-        clusters_context,
-    )
+    clusters = providers.Resource(clusters_context)
     clusters_lock = providers.Singleton(asyncio.Lock)
 
-    # Commands
-    get_proposal_command = providers.Factory(
-        commands.GetProposalsCommand,
-        golem_node,
-        DriverListAllocationPaymentManager,
-    )
-    create_cluster_command = providers.Factory(
-        commands.CreateClusterCommand,
-        golem_node,
-        clusters_lock,
-        clusters,
-    )
-    list_cluster_command = providers.Factory(
-        commands.ListClusterCommand,
-        golem_node,
-        clusters_lock,
-        clusters,
-    )
-
-    get_cluster_command = providers.Factory(
-        commands.GetClusterCommand,
-        clusters,
-    )
-    delete_cluster_command = providers.Factory(
-        commands.DeleteClusterCommand,
-        clusters_lock,
-        clusters,
-    )
-    create_node_command = providers.Factory(
-        commands.CreateNodeCommand,
-        golem_node,
-        clusters,
-    )
-    get_node_command = providers.Factory(
-        commands.GetNodeCommand,
-        clusters,
-    )
-    delete_node_command = providers.Factory(
-        commands.DeleteNodeCommand,
-        clusters,
-    )
-
-    get_port_allocation_manager = providers.Resource(
+    port_allocation_manager = providers.Resource(
         get_port_allocation_manager,
+    )
+
+    # Services container with injected dependencies
+    services = providers.Container(
+        ServicesContainer,
+        config=settings,
+        golem_node=golem_node,
+        clusters=clusters,
+        clusters_lock=clusters_lock,
+        port_allocation_manager=port_allocation_manager,
     )

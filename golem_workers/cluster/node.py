@@ -264,7 +264,8 @@ class Node:
         try:
             await command_func(
                 WorkContext(
-                    activity=self._activity, default_deploy_args=self._get_default_deploy_args(),
+                    activity=self._activity,
+                    default_deploy_args=self._get_default_deploy_args(),
                     extra=dict(node=self),
                 ),
                 *command_args,

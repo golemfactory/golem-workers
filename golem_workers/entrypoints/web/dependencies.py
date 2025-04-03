@@ -1,4 +1,4 @@
-from fastapi import Depends, Request
+from fastapi import Request
 
 from golem_workers.services.interfaces import (
     IProposalService,

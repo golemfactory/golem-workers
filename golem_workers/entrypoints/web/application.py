@@ -7,8 +7,8 @@ from starlette.responses import JSONResponse
 
 from golem.utils.logging import DEFAULT_LOGGING
 from golem_workers import __version__
-from golem_workers.containers import Container
-from golem_workers.entrypoints.web.endpoints import router, Tags
+from golem_workers.containers_new import Container
+from golem_workers.entrypoints.web.endpoints_new import router, Tags
 from golem_workers.exceptions import GolemWorkersError, ObjectNotFound, ObjectAlreadyExists
 from golem_workers.settings import Settings
 
@@ -38,16 +38,16 @@ async def object_already_exists_handler(request: Request, exc: GolemWorkersError
 
 
 def create_application() -> FastAPI:
+    # Create and configure the container
     container = Container()
-
-    # Workaround for https://github.com/ets-labs/python-dependency-injector/issues/755
     container.settings.from_dict(dict(Settings()))
-
     settings = container.settings()
 
+    # Configure logging
     logging.config.dictConfig(DEFAULT_LOGGING)
     logging.config.dictConfig(settings["logging_config"])
 
+    # Create the FastAPI application
     app = FastAPI(
         title="Golem Workers Specification",
         version=__version__,
@@ -70,18 +70,25 @@ def create_application() -> FastAPI:
                 "name": Tags.MISC,
                 "description": "General endpoints for utilities.",
             },
+            {
+                "name": Tags.PORTS,
+                "description": "Endpoints for port allocation management.",
+            },
         ],
     )
+
+    # Include the router
     app.include_router(router)
+
+    # Store the container in the app state
     app.state.container = container
 
+    # Configure CORS
     origins = [
         "https://docs.golem.network",
         "http://localhost:3000",
     ]
-
     vercel_origin_regex = "https://.*\.vercel\.app"
-
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
