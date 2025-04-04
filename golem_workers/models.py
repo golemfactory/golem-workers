@@ -4,7 +4,7 @@ import collections.abc
 from copy import deepcopy
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, List, Mapping, Optional, Union, Tuple, Sequence
+from typing import TYPE_CHECKING, Any, List, Mapping, Optional, Union, Tuple, Sequence, Dict
 
 import dpath
 from typing_extensions import Annotated
@@ -18,7 +18,7 @@ from golem_workers.utils import import_from_dotted_path
 
 if TYPE_CHECKING:
     from golem_workers.cluster.cluster import Cluster
-    from golem_workers.cluster.node import Node
+    from golem_workers.cluster.node import Node, ProviderInfo
 
 
 class RequestBaseModel(BaseModel, ABC):
@@ -352,6 +352,22 @@ class NodeConfig(BaseModel):
         return NodeConfig(**result)
 
 
+class ProviderInfoOut(BaseModel):
+    id: str
+    name: Optional[str] = None
+    runtime: Optional[str] = None
+    runtime_version: Optional[str] = None
+
+    @classmethod
+    def from_info(cls, provider_info: "ProviderInfo") -> "ProviderInfoOut":
+        return cls(
+            id=provider_info.provider_id,
+            name=provider_info.name,
+            runtime=provider_info.runtime,
+            runtime_version=provider_info.runtime_version,
+        )
+
+
 class NodeOut(BaseModel):
     """Data related to Node."""
 
@@ -359,12 +375,20 @@ class NodeOut(BaseModel):
 
     node_id: str
     state: NodeState
+    network_ips: Optional[Dict[str, str]] = Field(default_factory=list)
+    labels: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    provider: Optional["ProviderInfoOut"] = None
 
     @classmethod
     def from_node(cls, node: "Node") -> "NodeOut":
         return cls(
             node_id=node.node_id,
             state=node.state,
+            network_ips=dict(**node.network_ips),
+            labels=node.labels,
+            provider=ProviderInfoOut.from_info(node.connected_node)
+            if node.connected_node
+            else None,
         )
 
 
@@ -376,6 +400,7 @@ class ClusterOut(BaseModel):
     cluster_id: str
     state: ClusterState
     nodes: Mapping[str, NodeOut]
+    labels: Dict[str, Any] = Field(default_factory=dict)
 
     @classmethod
     def from_cluster(cls, cluster: "Cluster") -> "ClusterOut":
@@ -383,6 +408,7 @@ class ClusterOut(BaseModel):
             cluster_id=cluster.cluster_id,
             state=cluster.state,
             nodes={node_id: NodeOut.from_node(node) for node_id, node in cluster.nodes.items()},
+            labels=cluster.labels,
         )
 
 

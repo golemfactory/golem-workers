@@ -1,7 +1,7 @@
 import asyncio
 import hashlib
 import logging
-from typing import Dict, Mapping, Optional
+from typing import Dict, Mapping, Optional, Any
 
 from golem.node import GolemNode
 from golem.resources import Network, Allocation
@@ -39,6 +39,7 @@ class Cluster:
         allocation_config: Optional[AllocationConfig] = None,
         network_types: Optional[Mapping[str, NetworkConfig]] = None,
         node_types: Optional[Mapping[str, NodeConfig]] = None,
+        labels: Optional[Dict[str, Any]] = None,
     ) -> None:
         self._golem_node = golem_node
         self._cluster_id = cluster_id
@@ -59,6 +60,7 @@ class Cluster:
 
         self._state: ClusterState = ClusterState.CREATED
         self._extra = {}
+        self.labels = labels or {}
 
     def __str__(self) -> str:
         return self._cluster_id
@@ -276,6 +278,8 @@ class Cluster:
         node_type: str,
         budget_type: str,
         node_networks: Mapping[str, NodeNetworkConfig],
+        *,
+        labels: Dict[str, Any] = None,
     ) -> Node:
         node_id = self._get_new_node_id()
 
@@ -298,6 +302,8 @@ class Cluster:
             budget=budget,
             manager_stack=manager_stack,
             networks=networks,
+            cluster_id=self._cluster_id,
+            labels=labels,
         )
 
         node.schedule_provision()

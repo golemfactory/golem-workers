@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "golem-workers"
-version = "0.3.5"
+version = "0.5.0"
 description = "Golem Workers is an API providing direct and high-level access to CPU and GPU resources on the Golem Network."
 authors = ["Golem Factory <contact@golem.network>"]
 readme = "README.md"
@@ -23,8 +23,8 @@ python = "^3.10"
 
 #golem-core = {path = "../golem-core-python", develop = true}
 #golem-core = {git = "https://github.com/golemfactory/golem-core-python.git", branch = "approxit/cluster-api"}
-golem-core = "^0.7.6"
-golem-node = "^0.17.0"
+golem-core = { version = "^0.8", source = "test-pypi" }
+golem-node = { version = "^0.17.0", source = "test-pypi" }
 
 fastapi = "^0.111.0"
 pydantic-settings = "^2.3.1"
@@ -42,8 +42,9 @@ appdirs = "^1.4.4"
 poethepoet = "^0.8"
 ruff = "^0.4.8"
 liccheck = "^0.9.2"
-
-pydevd-pycharm = ">=231.8109.197,<231.8110.0"
+mypy = "^1.15.0"
+pytest = "^7.4.0"
+pytest-asyncio = "^0.23.0"
 
 [tool.poetry.scripts]
 golem-reputation = "golem_reputation.entrypoints.cli.main:main"
@@ -61,6 +62,9 @@ format = {sequence = ["_format_lint", "_format_format"], help = "Run code auto f
 _format_lint = "ruff check --fix"
 _format_format = "ruff format"
 
+tests = {cmd = "python -m pytest tests/ -v", help = "Run tests"}
+tests_coverage = {cmd = "python -m pytest tests/ --cov=golem_workers", help = "Run tests with coverage report"}
+
 extract_openapi = {cmd = "python3 -m utils.extract-openapi --out openapi.json golem_workers.entrypoints.web.main:app", env = {YAGNA_APPKEY = "ignored_but_needed"}, help = "Extract openapi.json file"}
 
 [tool.ruff]
@@ -71,6 +75,9 @@ quote-style = "double"
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
 
 [tool.liccheck]
 authorized_licenses = [
