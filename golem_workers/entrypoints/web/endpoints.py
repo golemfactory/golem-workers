@@ -181,9 +181,7 @@ async def create_cluster(
                     "description": "This example shows how to create a mainnet cluster that support average usage budget, simple VPN network and Golem Reputation integration. Note that to use this example, integration with Golem Reputation is required at Golem Workers startup - refer to README for more information.",
                     "value": {
                         "cluster_id": "example",
-                        "payment_config": {
-                            "network": "polygon"
-                        },
+                        "payment_config": {"network": "polygon"},
                         "budget_types": {
                             "default": {
                                 "budget": {
