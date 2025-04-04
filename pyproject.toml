@@ -84,6 +84,7 @@ authorized_licenses = [
     "bsd",
     "new bsd",
     "bsd license",
+    "BSD-3-Clause",
     "apache 2",
     "apache",
     "Apache Software",
@@ -97,6 +98,7 @@ authorized_licenses = [
     "GNU Lesser General Public License v3 or later (LGPLv3+)",
     "GNU Lesser General Public License v3 (LGPLv3)",
     "Python Software Foundation",
+    "PSF-2.0",
     "ISC",
     "ISC License (ISCL)",
     "The Unlicense (Unlicense)",
@@ -107,3 +109,4 @@ unauthorized_licenses = [
 
 [tool.liccheck.authorized_packages]
 websocat = "*"
+golem-node= "*"
