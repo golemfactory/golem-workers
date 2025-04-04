@@ -152,7 +152,7 @@ async def wait_for_http_endpoint(
                 await websocket.send(f"GET {path} HTTP/1.1\r\nHost: {node_ip}:{port}\r\n\r\n")
                 data = await websocket.recv(False)
                 return data[0:12] == b"HTTP/1.1 200"
-        except Exception:  # noqa: BLE001
+        except websockets.exceptions.WebSocketException:
             return False
 
     async def wait_for_endpoint():
