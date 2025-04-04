@@ -7,8 +7,8 @@ from starlette.responses import JSONResponse
 
 from golem.utils.logging import DEFAULT_LOGGING
 from golem_workers import __version__
-from golem_workers.containers_new import Container
-from golem_workers.entrypoints.web.endpoints_new import router, Tags
+from golem_workers.containers import Container
+from golem_workers.entrypoints.web.endpoints import router, Tags
 from golem_workers.exceptions import GolemWorkersError, ObjectNotFound, ObjectAlreadyExists
 from golem_workers.settings import Settings
 

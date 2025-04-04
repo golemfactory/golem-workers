@@ -1,10 +1,17 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Any
 
-from golem_workers.models import (
-    ProposalOut,
-    ClusterOut,
-    NodeOut,
+from golem_workers.services.types import (
+    CreateClusterRequest,
+    CreateNodeRequest,
+    GetProposalsRequest,
+    GetProposalsResponse,
+    CreateClusterResponse,
+    GetClusterResponse,
+    DeleteClusterResponse,
+    CreateNodeResponse,
+    GetNodeResponse,
+    DeleteNodeResponse,
 )
 
 
@@ -12,7 +19,7 @@ class IProposalService(ABC):
     """Interface for proposal-related operations."""
 
     @abstractmethod
-    async def get_proposals(self, request_data) -> List[ProposalOut]:
+    async def get_proposals(self, request_data: GetProposalsRequest) -> GetProposalsResponse:
         """Get proposals based on request parameters."""
         pass
 
@@ -21,7 +28,7 @@ class IClusterService(ABC):
     """Interface for cluster management operations."""
 
     @abstractmethod
-    async def create_cluster(self, request_data) -> ClusterOut:
+    async def create_cluster(self, request_data: CreateClusterRequest) -> CreateClusterResponse:
         """Create a new cluster."""
         pass
 
@@ -31,12 +38,12 @@ class IClusterService(ABC):
         pass
 
     @abstractmethod
-    async def get_cluster(self, cluster_id: str) -> ClusterOut:
+    async def get_cluster(self, cluster_id: str) -> GetClusterResponse:
         """Get details for a specific cluster."""
         pass
 
     @abstractmethod
-    async def delete_cluster(self, cluster_id: str) -> Dict[str, Any]:
+    async def delete_cluster(self, cluster_id: str) -> DeleteClusterResponse:
         """Delete a cluster."""
         pass
 
@@ -45,17 +52,17 @@ class INodeService(ABC):
     """Interface for node management operations."""
 
     @abstractmethod
-    async def create_node(self, request_data) -> NodeOut:
+    async def create_node(self, request_data: CreateNodeRequest) -> CreateNodeResponse:
         """Create a new node in a cluster."""
         pass
 
     @abstractmethod
-    async def get_node(self, cluster_id: str, node_id: str) -> NodeOut:
+    async def get_node(self, cluster_id: str, node_id: str) -> GetNodeResponse:
         """Get details for a specific node."""
         pass
 
     @abstractmethod
-    async def delete_node(self, cluster_id: str, node_id: str) -> Dict[str, Any]:
+    async def delete_node(self, cluster_id: str, node_id: str) -> DeleteNodeResponse:
         """Delete a node from a cluster."""
         pass
 

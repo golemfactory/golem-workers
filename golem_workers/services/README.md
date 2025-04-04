@@ -62,7 +62,7 @@ To extend a service with custom behavior:
 
 ```python
 from dependency_injector import providers
-from golem_workers.containers_new import Container
+from golem_workers.containers import Container
 from my_app.services import CustomClusterService
 
 container = Container()

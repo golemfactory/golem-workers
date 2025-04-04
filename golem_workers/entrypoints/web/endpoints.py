@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field
 from typing_extensions import Annotated
 
 from golem_workers import __version__
-from golem_workers import commands
 from golem_workers.entrypoints.web.dependencies import (
     get_proposal_service,
     get_cluster_service,
@@ -20,6 +19,18 @@ from golem_workers.services.interfaces import (
     IClusterService,
     INodeService,
     IPortAllocationService,
+)
+from golem_workers.services.types import (
+    CreateClusterRequest,
+    CreateClusterResponse,
+    GetClusterResponse,
+    DeleteClusterResponse,
+    CreateNodeRequest,
+    CreateNodeResponse,
+    GetNodeResponse,
+    DeleteNodeResponse,
+    GetProposalsRequest,
+    GetProposalsResponse,
 )
 
 
@@ -61,11 +72,11 @@ async def index():
     "/get-proposals",
     tags=[Tags.MISC],
     responses=responses,
-    description=commands.GetProposalsCommand.__doc__,
+    description="Get proposals based on the provided parameters.",
 )
 async def get_proposals(
     request_data: Annotated[
-        commands.GetProposalsRequest,
+        GetProposalsRequest,
         Body(
             openapi_examples={
                 "minimal_cpu": {
@@ -83,9 +94,8 @@ async def get_proposals(
         ),
     ],
     proposal_service: IProposalService = Depends(get_proposal_service),
-) -> commands.GetProposalsResponse:
-    proposals = await proposal_service.get_proposals(request_data)
-    return commands.GetProposalsResponse(proposals=proposals)
+) -> GetProposalsResponse:
+    return await proposal_service.get_proposals(request_data)
 
 
 @router.get("/cluster", tags=[Tags.CLUSTERS])
@@ -102,11 +112,11 @@ async def list_clusters(
     "/cluster",
     tags=[Tags.CLUSTERS],
     responses={**responses, **already_exists_responses},
-    description=commands.CreateClusterCommand.__doc__,
+    description="Creates cluster and schedules its start.",
 )
 async def create_cluster(
     request_data: Annotated[
-        commands.CreateClusterRequest,
+        CreateClusterRequest,
         Body(
             openapi_examples={
                 "testnet_linear_budget_vpn_reputation": {
@@ -137,30 +147,28 @@ async def create_cluster(
         ),
     ],
     cluster_service: IClusterService = Depends(get_cluster_service),
-) -> commands.CreateClusterResponse:
-    cluster = await cluster_service.create_cluster(request_data)
-    return commands.CreateClusterResponse(cluster=cluster)
+) -> CreateClusterResponse:
+    return await cluster_service.create_cluster(request_data)
 
 
 @router.get(
     "/cluster/{cluster_id}",
     tags=[Tags.CLUSTERS],
     responses={**responses, **not_found_responses},
-    description=commands.GetClusterCommand.__doc__,
+    description="Get details for a specific cluster.",
 )
 async def get_cluster(
     cluster_id: str,
     cluster_service: IClusterService = Depends(get_cluster_service),
-) -> commands.GetClusterResponse:
-    cluster = await cluster_service.get_cluster(cluster_id)
-    return commands.GetClusterResponse(cluster=cluster)
+) -> GetClusterResponse:
+    return await cluster_service.get_cluster(cluster_id)
 
 
 @router.delete(
     "/cluster/{cluster_id}",
     tags=[Tags.CLUSTERS],
     responses={**responses, **not_found_responses},
-    description=commands.DeleteClusterCommand.__doc__,
+    description="Delete a cluster.",
 )
 async def delete_cluster(
     cluster_id: str = Path(
@@ -170,9 +178,8 @@ async def delete_cluster(
         example="example",
     ),
     cluster_service: IClusterService = Depends(get_cluster_service),
-) -> commands.DeleteClusterResponse:
-    result = await cluster_service.delete_cluster(cluster_id)
-    return commands.DeleteClusterResponse(cluster=result["cluster"])
+) -> DeleteClusterResponse:
+    return await cluster_service.delete_cluster(cluster_id)
 
 
 @router.post(
@@ -182,11 +189,11 @@ async def delete_cluster(
         **responses,
         **already_exists_responses,
     },
-    description=commands.CreateNodeCommand.__doc__,
+    description="Creates node. Apply logic from cluster configuration.",
 )
 async def create_node(
     request_data: Annotated[
-        commands.CreateNodeRequest,
+        CreateNodeRequest,
         Body(
             openapi_examples={
                 "echo_test": {
@@ -224,39 +231,36 @@ async def create_node(
         example="example",
     ),
     node_service: INodeService = Depends(get_node_service),
-) -> commands.CreateNodeResponse:
-    node = await node_service.create_node(request_data)
-    return commands.CreateNodeResponse(node=node)
+) -> CreateNodeResponse:
+    return await node_service.create_node(request_data)
 
 
 @router.get(
     "/cluster/{cluster_id}/node/{node_id}",
     tags=[Tags.NODES],
     responses={**responses, **not_found_responses},
-    description=commands.GetNodeCommand.__doc__,
+    description="Get details for a specific node.",
 )
 async def get_node(
     cluster_id: str,
     node_id: str,
     node_service: INodeService = Depends(get_node_service),
-) -> commands.GetNodeResponse:
-    node = await node_service.get_node(cluster_id, node_id)
-    return commands.GetNodeResponse(node=node)
+) -> GetNodeResponse:
+    return await node_service.get_node(cluster_id, node_id)
 
 
 @router.delete(
     "/cluster/{cluster_id}/node/{node_id}",
     tags=[Tags.NODES],
     responses={**responses, **not_found_responses},
-    description=commands.DeleteNodeCommand.__doc__,
+    description="Delete a node from a cluster.",
 )
 async def delete_node(
     cluster_id: str,
     node_id: str,
     node_service: INodeService = Depends(get_node_service),
-) -> commands.DeleteNodeResponse:
-    result = await node_service.delete_node(cluster_id, node_id)
-    return commands.DeleteNodeResponse(node=result["node"])
+) -> DeleteNodeResponse:
+    return await node_service.delete_node(cluster_id, node_id)
 
 
 @router.get(

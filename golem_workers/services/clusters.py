@@ -1,5 +1,5 @@
 import asyncio
-from typing import Dict, List, MutableMapping, Any
+from typing import List, MutableMapping
 
 from golem.node import GolemNode
 
@@ -9,6 +9,12 @@ from golem_workers.models import (
     ClusterOut,
 )
 from golem_workers.services.interfaces import IClusterService
+from golem_workers.services.types import (
+    CreateClusterRequest,
+    CreateClusterResponse,
+    GetClusterResponse,
+    DeleteClusterResponse,
+)
 
 
 class ClusterService(IClusterService):
@@ -24,7 +30,7 @@ class ClusterService(IClusterService):
         self._clusters_lock = clusters_lock
         self._clusters = clusters
 
-    async def create_cluster(self, request_data) -> ClusterOut:
+    async def create_cluster(self, request_data: CreateClusterRequest) -> CreateClusterResponse:
         """Create a new cluster."""
         async with self._clusters_lock:
             cluster_id = request_data.cluster_id
@@ -46,23 +52,23 @@ class ClusterService(IClusterService):
 
             cluster.schedule_start()
 
-            return ClusterOut.from_cluster(cluster)
+            return CreateClusterResponse(cluster=ClusterOut.from_cluster(cluster))
 
     async def list_clusters(self) -> List[str]:
         """List all available clusters."""
         async with self._clusters_lock:
             return list(self._clusters.keys())
 
-    async def get_cluster(self, cluster_id: str) -> ClusterOut:
+    async def get_cluster(self, cluster_id: str) -> GetClusterResponse:
         """Get details for a specific cluster."""
         cluster = self._clusters.get(cluster_id)
 
         if not cluster:
             raise ObjectNotFound(f"Cluster with id `{cluster_id}` does not exists!")
 
-        return ClusterOut.from_cluster(cluster)
+        return GetClusterResponse(cluster=ClusterOut.from_cluster(cluster))
 
-    async def delete_cluster(self, cluster_id: str) -> Dict[str, Any]:
+    async def delete_cluster(self, cluster_id: str) -> DeleteClusterResponse:
         """Delete a cluster."""
         async with self._clusters_lock:
             cluster = self._clusters.get(cluster_id)
@@ -74,4 +80,4 @@ class ClusterService(IClusterService):
             await cluster.stop()
             del self._clusters[cluster_id]
 
-            return {"cluster": ClusterOut.from_cluster(cluster)}
+            return DeleteClusterResponse(cluster=ClusterOut.from_cluster(cluster))

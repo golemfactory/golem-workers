@@ -5,12 +5,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build/Lint/Test Commands
 
 - Install dependencies: `poetry install`
-- Run all code checks: `poetry run poe checks`
-- Run code style checks: `poetry run poe checks_codestyle`
-- Run only linting: `poetry run poe _checks_lint`
-- Run only format check: `poetry run poe _checks_format`
-- Format code: `poetry run poe format`
-- Extract OpenAPI: `poetry run poe extract_openapi`
+- Run all code checks: `poetry poe checks`
+- Run code style checks: `poetry poe checks_codestyle`
+- Run only linting: `poetry poe _checks_lint`
+- Format code: `poetry poe format`
+- Extract OpenAPI: `poetry poe extract_openapi`
 
 ## Code Style Guidelines
 
