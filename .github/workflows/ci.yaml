@@ -15,6 +15,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+          cache: 'pip'
       - name: Install poetry
         uses: snok/install-poetry@v1
         with:
@@ -23,7 +24,14 @@ jobs:
           virtualenvs-in-project: true
           installer-parallel: true
           plugins: "poethepoet[poetry_plugin]"
+      - name: Cache dependencies
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: .venv
+          key: venv-${{ hashFiles('**/poetry.lock') }}
       - name: Install dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
         run: poetry install --no-root
       - name: Run code style checks
         run: poetry poe checks_codestyle
@@ -38,6 +46,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+          cache: 'pip'
       - name: Install poetry
         uses: snok/install-poetry@v1
         with:
@@ -46,7 +55,14 @@ jobs:
           virtualenvs-in-project: true
           installer-parallel: true
           plugins: "poethepoet[poetry_plugin]"
+      - name: Cache dependencies
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: .venv
+          key: venv-${{ hashFiles('**/poetry.lock') }}
       - name: Install dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
         run: poetry install --no-root
       - name: Extract OpenAPI spec
         run: poetry poe extract_openapi
