@@ -25,10 +25,12 @@ class ClusterService(IClusterService):
         golem_node: GolemNode,
         clusters_lock: asyncio.Lock,
         clusters: MutableMapping[str, Cluster],
+        port_allocation_service = None,
     ):
         self._golem_node = golem_node
         self._clusters_lock = clusters_lock
         self._clusters = clusters
+        self._port_allocation_service = port_allocation_service
 
     async def create_cluster(self, request_data: CreateClusterRequest) -> CreateClusterResponse:
         """Create a new cluster."""
@@ -79,5 +81,9 @@ class ClusterService(IClusterService):
             # Stop and remove cluster
             await cluster.stop()
             del self._clusters[cluster_id]
+
+            # Release any ports associated with this cluster after deleting it
+            if self._port_allocation_service:
+                self._port_allocation_service.release_ports_by_cluster_node(cluster_id)
 
             return DeleteClusterResponse(cluster=ClusterOut.from_cluster(cluster))

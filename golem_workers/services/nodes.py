@@ -25,9 +25,11 @@ class NodeService(INodeService):
         self,
         golem_node: GolemNode,
         clusters: Mapping[str, Cluster],
+        port_allocation_service = None,
     ):
         self._golem_node = golem_node
         self._clusters = clusters
+        self._port_allocation_service = port_allocation_service
 
     def _get_cluster(self, cluster_id: str) -> Cluster:
         """Get cluster by ID or raise ObjectNotFound."""
@@ -109,5 +111,9 @@ class NodeService(INodeService):
 
         # Delete node
         await cluster.delete_node(node)
+
+        # Release any ports associated with this node after deleting it
+        if self._port_allocation_service:
+            self._port_allocation_service.release_ports_by_cluster_node(cluster_id, node_id)
 
         return DeleteNodeResponse(node=NodeOut.from_node(node))

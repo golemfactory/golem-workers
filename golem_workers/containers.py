@@ -66,6 +66,11 @@ class ServicesContainer(DeclarativeContainer):
     clusters_lock = providers.Dependency()
     port_allocation_manager = providers.Dependency()
 
+    port_allocation_service = providers.Factory(
+        PortAllocationService,
+        allocation_manager=port_allocation_manager,
+    )
+    
     # Service providers
     proposal_service = providers.Factory(
         ProposalService,
@@ -78,18 +83,16 @@ class ServicesContainer(DeclarativeContainer):
         golem_node=golem_node,
         clusters_lock=clusters_lock,
         clusters=clusters,
+        port_allocation_service=port_allocation_service,
     )
 
     node_service = providers.Factory(
         NodeService,
         golem_node=golem_node,
         clusters=clusters,
+        port_allocation_service=port_allocation_service,
     )
 
-    port_allocation_service = providers.Factory(
-        PortAllocationService,
-        allocation_manager=port_allocation_manager,
-    )
 
 
 class Container(DeclarativeContainer):

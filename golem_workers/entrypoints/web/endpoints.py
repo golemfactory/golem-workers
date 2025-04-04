@@ -32,6 +32,7 @@ from golem_workers.services.types import (
     GetProposalsRequest,
     GetProposalsResponse,
     PortStatistics,
+    PortAllocationOut,
 )
 
 
@@ -324,11 +325,7 @@ class PortUseRequest(BaseModel):
     node_id: str
 
 
-class PortUseResponse(BaseModel):
-    port: int
-    status: str
-    cluster_id: str
-    node_id: str
+# Using PortAllocationOut from services.types instead of this custom model
 
 
 class PortReleaseResponse(BaseModel):
@@ -336,14 +333,8 @@ class PortReleaseResponse(BaseModel):
     status: str
 
 
-class ClusterNodeReleaseRequest(BaseModel):
-    cluster_id: str
-    node_id: Optional[str] = None
-
-
-class PortsReleasedResponse(BaseModel):
-    released_ports: List[int]
-    count: int
+# These classes and the related endpoint have been removed
+# in favor of automatic port release when deleting nodes/clusters
 
 
 @router.get(
@@ -381,7 +372,7 @@ async def allocate_port(
 async def use_port(
     request_data: PortUseRequest,
     port_service: IPortAllocationService = Depends(get_port_allocation_service),
-) -> PortUseResponse:
+) -> PortAllocationOut:
     """Mark a port as in use by a specific cluster and node."""
 
     try:
@@ -470,19 +461,3 @@ async def get_port_allocation(
             detail=f"Allocation with ID '{allocation_id}' not found",
         )
 
-
-@router.delete(
-    "/ports/release",
-    tags=[Tags.PORTS],
-    responses=responses,
-    description="Releases all ports associated with a cluster or node.",
-)
-async def release_ports_by_cluster_node(
-    request_data: ClusterNodeReleaseRequest,
-    port_service: IPortAllocationService = Depends(get_port_allocation_service),
-) -> PortsReleasedResponse:
-    """Release all ports associated with a cluster or node."""
-    return port_service.release_ports_by_cluster_node(
-        request_data.cluster_id,
-        request_data.node_id,
-    )
