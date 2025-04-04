@@ -31,7 +31,6 @@
           "misc"
         ],
         "summary": "Get Proposals",
-        "description": "Reads proposals from Golem Network based on given `market_config`.",
         "operationId": "get_proposals_get_proposals_post",
         "requestBody": {
           "required": true,
@@ -335,6 +334,17 @@
         "summary": "Get Cluster",
         "description": "Reads cluster info and status.",
         "operationId": "get_cluster_cluster__cluster_id__get",
+        "parameters": [
+          {
+            "name": "cluster_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Cluster Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -362,6 +372,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPGenericError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -758,6 +778,499 @@
           }
         }
       }
+    },
+    "/events": {
+      "get": {
+        "tags": [
+          "misc"
+        ],
+        "summary": "Events",
+        "description": "Server-Sent Events (SSE) endpoint for receiving real-time node events",
+        "operationId": "events_events_get",
+        "parameters": [
+          {
+            "name": "node_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter events by node ID",
+              "title": "Node Id"
+            },
+            "description": "Filter events by node ID"
+          },
+          {
+            "name": "cluster_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter events by cluster ID",
+              "title": "Cluster Id"
+            },
+            "description": "Filter events by cluster ID"
+          },
+          {
+            "name": "event_types",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter events by event types (e.g. provisioning_started, started, stopped)",
+              "title": "Event Types"
+            },
+            "description": "Filter events by event types (e.g. provisioning_started, started, stopped)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ports/config": {
+      "get": {
+        "tags": [
+          "ports"
+        ],
+        "summary": "Get Port Config",
+        "description": "Returns the current port allocation service configuration.",
+        "operationId": "get_port_config_ports_config_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortConfigResponse"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Unhandled server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPGenericError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ports/allocate": {
+      "post": {
+        "tags": [
+          "ports"
+        ],
+        "summary": "Allocate Port",
+        "description": "Allocates a random available port in the configured range.",
+        "operationId": "allocate_port_ports_allocate_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortAllocationResponse"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Unhandled server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPGenericError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ports/use": {
+      "post": {
+        "tags": [
+          "ports"
+        ],
+        "summary": "Use Port",
+        "description": "Assigns a previously allocated port to a specific cluster and node.",
+        "operationId": "use_port_ports_use_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PortUseRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortUseResponse"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Unhandled server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPGenericError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Object was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPGenericError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ports/{allocation_id}": {
+      "delete": {
+        "tags": [
+          "ports"
+        ],
+        "summary": "Cancel Port Allocation",
+        "description": "Releases a port back to the available pool.",
+        "operationId": "cancel_port_allocation_ports__allocation_id__delete",
+        "parameters": [
+          {
+            "name": "allocation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Allocation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortReleaseResponse"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Unhandled server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPGenericError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Object was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPGenericError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "ports"
+        ],
+        "summary": "Get Port Allocation",
+        "description": "Returns details about a specific port allocation.",
+        "operationId": "get_port_allocation_ports__allocation_id__get",
+        "parameters": [
+          {
+            "name": "allocation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Allocation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortAllocationResponse"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Unhandled server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPGenericError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Object was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPGenericError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ports": {
+      "get": {
+        "tags": [
+          "ports"
+        ],
+        "summary": "List Port Allocations",
+        "description": "Lists all port allocations with optional filtering.",
+        "operationId": "list_port_allocations_ports_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by status (allocated or in_use)",
+              "title": "Status"
+            },
+            "description": "Filter by status (allocated or in_use)"
+          },
+          {
+            "name": "cluster_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by cluster ID",
+              "title": "Cluster Id"
+            },
+            "description": "Filter by cluster ID"
+          },
+          {
+            "name": "node_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by node ID",
+              "title": "Node Id"
+            },
+            "description": "Filter by node ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PortAllocationResponse"
+                  },
+                  "title": "Response List Port Allocations Ports Get"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Unhandled server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPGenericError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ports/release": {
+      "delete": {
+        "tags": [
+          "ports"
+        ],
+        "summary": "Release Ports By Cluster Node",
+        "description": "Releases all ports associated with a cluster or node.",
+        "operationId": "release_ports_by_cluster_node_ports_release_delete",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClusterNodeReleaseRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortsReleasedResponse"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Unhandled server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPGenericError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -842,6 +1355,30 @@
         ],
         "title": "BudgetScope"
       },
+      "ClusterNodeReleaseRequest": {
+        "properties": {
+          "cluster_id": {
+            "type": "string",
+            "title": "Cluster Id"
+          },
+          "node_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Node Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cluster_id"
+        ],
+        "title": "ClusterNodeReleaseRequest"
+      },
       "ClusterOut": {
         "properties": {
           "cluster_id": {
@@ -857,6 +1394,11 @@
             },
             "type": "object",
             "title": "Nodes"
+          },
+          "labels": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Labels"
           }
         },
         "type": "object",
@@ -888,6 +1430,12 @@
             "title": "Cluster Id",
             "default": "default"
           },
+          "labels": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Labels",
+            "description": "Metadata labels for the cluster in key-value format."
+          },
           "payment_config": {
             "$ref": "#/components/schemas/PaymentConfig",
             "description": "Payment configuration that will be applied on the whole cluster. Can be replaced by `payment_config` in `budget_types`."
@@ -908,7 +1456,7 @@
               "$ref": "#/components/schemas/BudgetConfig"
             },
             "type": "object",
-            "minProperties": 1,
+            "minLength": 1,
             "title": "Budget Types",
             "description": "Collection of Budget configurations that nodes can reference by the key."
           },
@@ -989,6 +1537,18 @@
                 "type": "null"
               }
             ]
+          },
+          "labels": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Labels"
           }
         },
         "additionalProperties": false,
@@ -1057,25 +1617,52 @@
       },
       "GetProposalsRequest": {
         "properties": {
-          "market_config": {
-            "$ref": "#/components/schemas/MarketConfig",
-            "description": "Market configuration to be used for gathering proposals from the market. It's definition can be partial in comparison with definition in node creation."
-          },
-          "budget": {
+          "subnet": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ImportableElement"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Budget to be used for market processing.",
-            "default": "golem_workers.budgets.BlankBudget"
+            "title": "Subnet",
+            "description": "The subnet to use for gathering proposals. Specify a subnet tag to filter providers."
           },
-          "payment_config": {
-            "$ref": "#/components/schemas/PaymentConfig",
-            "description": "Payment configuration to be used for gathering proposals from the market."
+          "payment_network": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaymentNetwork"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Payment network to use for the proposals. Available networks: mainnet, sepolia, rinkeby, goerli, holesky, polygon, mumbai, amoy."
+          },
+          "runtime": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime",
+            "description": "The runtime environment to use (e.g., 'vm', 'wasm')."
+          },
+          "gpu_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Model",
+            "description": "Filter proposals by specific GPU model requirements."
           },
           "collection_time_seconds": {
             "type": "number",
@@ -1086,9 +1673,6 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "market_config"
-        ],
         "title": "GetProposalsRequest"
       },
       "GetProposalsResponse": {
@@ -1143,6 +1727,7 @@
             "additionalProperties": {
               "anyOf": [
                 {
+                  "additionalProperties": true,
                   "type": "object",
                   "description": "Collection of kwargs to be applied for importable object."
                 },
@@ -1154,8 +1739,8 @@
               ]
             },
             "type": "object",
-            "maxProperties": 1,
-            "minProperties": 1,
+            "maxLength": 1,
+            "minLength": 1,
             "description": "Object which the only key is a importable dotted path to Python object."
           }
         ],
@@ -1199,6 +1784,7 @@
             "description": "List of importable payloads to be added to the demand exactly in given order.\n        \n        Built-in payloads:\n          * `golem_workers.payloads.ClusterNodePayload`\n        "
           },
           "properties": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Properties",
             "description": "Collection of raw properties to be added to the demand on top of payloads."
@@ -1336,6 +1922,42 @@
           },
           "state": {
             "$ref": "#/components/schemas/NodeState"
+          },
+          "network_ips": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Network Ips"
+          },
+          "labels": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Labels"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProviderInfoOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -1395,6 +2017,161 @@
         "title": "PaymentConfig",
         "description": "Definition of the details related to payment methods."
       },
+      "PaymentNetwork": {
+        "type": "string",
+        "enum": [
+          "mainnet",
+          "sepolia",
+          "rinkeby",
+          "goerli",
+          "holesky",
+          "polygon",
+          "mumbai",
+          "amoy"
+        ],
+        "title": "PaymentNetwork"
+      },
+      "PortAllocationResponse": {
+        "properties": {
+          "allocation_id": {
+            "type": "string",
+            "title": "Allocation Id"
+          },
+          "port": {
+            "type": "integer",
+            "title": "Port"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "expires_at": {
+            "type": "string",
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "allocation_id",
+          "port",
+          "status",
+          "expires_at"
+        ],
+        "title": "PortAllocationResponse"
+      },
+      "PortConfigResponse": {
+        "properties": {
+          "min_port": {
+            "type": "integer",
+            "title": "Min Port"
+          },
+          "max_port": {
+            "type": "integer",
+            "title": "Max Port"
+          },
+          "expiration_minutes": {
+            "type": "integer",
+            "title": "Expiration Minutes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "min_port",
+          "max_port",
+          "expiration_minutes"
+        ],
+        "title": "PortConfigResponse"
+      },
+      "PortReleaseResponse": {
+        "properties": {
+          "port": {
+            "type": "integer",
+            "title": "Port"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "port",
+          "status"
+        ],
+        "title": "PortReleaseResponse"
+      },
+      "PortUseRequest": {
+        "properties": {
+          "allocation_id": {
+            "type": "string",
+            "title": "Allocation Id"
+          },
+          "cluster_id": {
+            "type": "string",
+            "title": "Cluster Id"
+          },
+          "node_id": {
+            "type": "string",
+            "title": "Node Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "allocation_id",
+          "cluster_id",
+          "node_id"
+        ],
+        "title": "PortUseRequest"
+      },
+      "PortUseResponse": {
+        "properties": {
+          "port": {
+            "type": "integer",
+            "title": "Port"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "cluster_id": {
+            "type": "string",
+            "title": "Cluster Id"
+          },
+          "node_id": {
+            "type": "string",
+            "title": "Node Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "port",
+          "status",
+          "cluster_id",
+          "node_id"
+        ],
+        "title": "PortUseResponse"
+      },
+      "PortsReleasedResponse": {
+        "properties": {
+          "released_ports": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Released Ports"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "released_ports",
+          "count"
+        ],
+        "title": "PortsReleasedResponse"
+      },
       "ProposalOut": {
         "properties": {
           "proposal_id": {
@@ -1450,6 +2227,52 @@
         ],
         "title": "ProposalOut",
         "description": "Data related to Proposal."
+      },
+      "ProviderInfoOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "runtime": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime"
+          },
+          "runtime_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "ProviderInfoOut"
       },
       "ValidationError": {
         "properties": {

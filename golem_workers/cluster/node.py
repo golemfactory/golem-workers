@@ -1,13 +1,16 @@
+import types
 from datetime import timedelta
 
 import asyncio
 import logging
 from typing import List, Optional, Mapping, MutableMapping, Tuple, Dict, Any
+from dataclasses import dataclass
 
 from golem.node import GolemNode
 from golem.resources import Activity, Network, BatchError
 from golem.utils.asyncio import create_task_with_logging, ensure_cancelled
 from golem.utils.logging import get_trace_id_name
+
 from golem_workers.budgets import Budget
 from golem_workers.cluster.manager_stack import ManagerStack
 from golem_workers.events import emit_node_event
@@ -27,6 +30,14 @@ from golem_workers.models import (
 logger = logging.getLogger(__name__)
 
 ACTIVITY_MONITOR_CHECK_INTERVAL = timedelta(minutes=1)
+
+
+@dataclass
+class ProviderInfo:
+    provider_id: str
+    runtime: Optional[str] = None
+    runtime_version: Optional[str] = None
+    name: Optional[str] = None
 
 
 class Node:
@@ -54,6 +65,7 @@ class Node:
         self._networks = networks
         self._cluster_id = cluster_id
         self._labels = labels
+        self._connected_node: Optional[ProviderInfo] = None
 
         self._sidecars = self._prepare_sidecars()
 
@@ -82,6 +94,10 @@ class Node:
         """Read-only node id."""
 
         return self._node_id
+
+    @property
+    def connected_node(self) -> Optional[ProviderInfo]:
+        return self._connected_node
 
     @property
     def labels(self) -> Optional[Dict[str, Any]]:
@@ -113,6 +129,11 @@ class Node:
             sidecars.append(sidecar_class(self._golem_node, self, *sidecar_args, **sidecar_kwargs))
 
         return sidecars
+
+    @property
+    def network_ips(self) -> Mapping[str, str]:
+        """Read-only map of network names to assigned node ip."""
+        return types.MappingProxyType(self._network_ips)
 
     def schedule_provision(self) -> None:
         """Schedule provision of the node in another asyncio task."""
@@ -154,11 +175,19 @@ class Node:
         self._state = NodeState.PROVISIONED
         self._background_task = None
 
+        self._connected_node = ProviderInfo(
+            provider_id=agreement_data.provider_id,
+            name=agreement_data.properties.get("golem.node.id.name"),
+            runtime=agreement_data.properties.get("golem.runtime.name"),
+            runtime_version=agreement_data.properties.get("golem.runtime.version"),
+        )
+
         self._emit_event(
             "provisioned",
             {
                 "state": self._state.value,
                 "network_ips": {k: v for k, v in self._network_ips.items()},
+                "connected_node": self._connected_node,
             },
         )
 
@@ -264,7 +293,8 @@ class Node:
         try:
             await command_func(
                 WorkContext(
-                    activity=self._activity, default_deploy_args=self._get_default_deploy_args(),
+                    activity=self._activity,
+                    default_deploy_args=self._get_default_deploy_args(),
                     extra=dict(node=self),
                 ),
                 *command_args,

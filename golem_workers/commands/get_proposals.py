@@ -32,7 +32,7 @@ class GetProposalsRequest(CommandRequest):
     payment_network: Optional[PaymentNetwork] = Field(
         default=None,
         description="Payment network to use for the proposals. Available networks: mainnet, sepolia, rinkeby, goerli, "
-                    "holesky, polygon, mumbai, amoy.",
+        "holesky, polygon, mumbai, amoy.",
     )
     runtime: Optional[str] = Field(
         default=None, description="The runtime environment to use (e.g., 'vm', 'wasm')."
@@ -43,7 +43,7 @@ class GetProposalsRequest(CommandRequest):
     collection_time_seconds: float = Field(
         default=5,
         description="Number of seconds of how long proposals should be gathered on the market. Too small value can "
-                    "result in less or even no proposals.",
+        "result in less or even no proposals.",
     )
 
 
@@ -55,9 +55,9 @@ class GetProposalsCommand(Command[GetProposalsRequest, GetProposalsResponse]):
     CONSTRAINTS_DELIMITER = ""
 
     def __init__(
-            self,
-            golem_node: GolemNode,
-            _temp_payment_manager_factory: Callable[..., PaymentManager],
+        self,
+        golem_node: GolemNode,
+        _temp_payment_manager_factory: Callable[..., PaymentManager],
     ) -> None:
         self._golem_node = golem_node
 
@@ -69,7 +69,7 @@ class GetProposalsCommand(Command[GetProposalsRequest, GetProposalsResponse]):
         logger.debug("constraints_expression: %s", constraints_expression)
 
         async for offer_data in self._golem_node.scan(
-                quick_scan=True, constraints=constraints_expression
+            quick_scan=True, constraints=constraints_expression
         ):
             proposals.append(
                 ProposalOut(
