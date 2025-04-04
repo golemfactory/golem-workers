@@ -9,6 +9,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Run code style checks: `poetry poe checks_codestyle`
 - Run only linting: `poetry poe _checks_lint`
 - Format code: `poetry poe format`
+- Run tests: `poetry poe tests`
+- Run tests with coverage: `poetry poe tests_coverage`
 - Extract OpenAPI: `poetry poe extract_openapi`
 
 ## Code Style Guidelines
