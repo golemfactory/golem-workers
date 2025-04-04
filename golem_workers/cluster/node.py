@@ -1,15 +1,19 @@
+import types
 from datetime import timedelta
 
 import asyncio
 import logging
-from typing import List, Optional, Mapping, MutableMapping, Tuple
+from typing import List, Optional, Mapping, MutableMapping, Tuple, Dict, Any
+from dataclasses import dataclass
 
 from golem.node import GolemNode
 from golem.resources import Activity, Network, BatchError
 from golem.utils.asyncio import create_task_with_logging, ensure_cancelled
 from golem.utils.logging import get_trace_id_name
+
 from golem_workers.budgets import Budget
 from golem_workers.cluster.manager_stack import ManagerStack
+from golem_workers.events import emit_node_event
 from golem_workers.sidecars import (
     Sidecar,
     MonitorClusterNodeSidecar,
@@ -28,6 +32,14 @@ logger = logging.getLogger(__name__)
 ACTIVITY_MONITOR_CHECK_INTERVAL = timedelta(minutes=1)
 
 
+@dataclass
+class ProviderInfo:
+    provider_id: str
+    runtime: Optional[str] = None
+    runtime_version: Optional[str] = None
+    name: Optional[str] = None
+
+
 class Node:
     """Self-contained element that represents cluster node."""
 
@@ -40,6 +52,9 @@ class Node:
         budget: Budget,
         manager_stack: ManagerStack,
         networks: Mapping[str, Network],
+        *,
+        cluster_id: str,
+        labels: Optional[Dict[str, Any]] = None,
     ) -> None:
         self._golem_node = golem_node
         self._node_id = node_id
@@ -48,6 +63,9 @@ class Node:
         self._budget = budget
         self._manager_stack = manager_stack
         self._networks = networks
+        self._cluster_id = cluster_id
+        self._labels = labels
+        self._connected_node: Optional[ProviderInfo] = None
 
         self._sidecars = self._prepare_sidecars()
 
@@ -56,6 +74,17 @@ class Node:
 
         self._state = NodeState.CREATED
         self._background_task: Optional[asyncio.Task] = None
+        # Emit creation event
+        self._emit_event("created", {"state": self._state.value})
+
+    def _emit_event(self, event_type: str, data: Dict[str, Any]):
+        """Emit an event with the current node information."""
+        emit_node_event(
+            node_id=self._node_id,
+            event_type=event_type,
+            data=data,
+            cluster_id=self._cluster_id,
+        )
 
     def __str__(self) -> str:
         return self._node_id
@@ -65,6 +94,14 @@ class Node:
         """Read-only node id."""
 
         return self._node_id
+
+    @property
+    def connected_node(self) -> Optional[ProviderInfo]:
+        return self._connected_node
+
+    @property
+    def labels(self) -> Optional[Dict[str, Any]]:
+        return self._labels
 
     @property
     def state(self) -> NodeState:
@@ -93,6 +130,11 @@ class Node:
 
         return sidecars
 
+    @property
+    def network_ips(self) -> Mapping[str, str]:
+        """Read-only map of network names to assigned node ip."""
+        return types.MappingProxyType(self._network_ips)
+
     def schedule_provision(self) -> None:
         """Schedule provision of the node in another asyncio task."""
 
@@ -109,6 +151,7 @@ class Node:
             self.provision(),
             trace_id=get_trace_id_name(self, "scheduled-provision"),
         )
+        self._emit_event("provision_scheduled", {"state": self._state.value})
 
     async def provision(self) -> None:
         logger.info("Provisioning `%s` node...", self)
@@ -131,6 +174,22 @@ class Node:
 
         self._state = NodeState.PROVISIONED
         self._background_task = None
+
+        self._connected_node = ProviderInfo(
+            provider_id=agreement_data.provider_id,
+            name=agreement_data.properties.get("golem.node.id.name"),
+            runtime=agreement_data.properties.get("golem.runtime.name"),
+            runtime_version=agreement_data.properties.get("golem.runtime.version"),
+        )
+
+        self._emit_event(
+            "provisioned",
+            {
+                "state": self._state.value,
+                "network_ips": {k: v for k, v in self._network_ips.items()},
+                "connected_node": self._connected_node,
+            },
+        )
 
         self.schedule_start()  # TODO: Consider external place to start the node after provision
 
@@ -163,14 +222,16 @@ class Node:
         logger.info("Starting `%s` node...", self)
 
         self._state = NodeState.STARTING
+        self._emit_event("starting", {"state": self._state.value})
 
         try:
             for command in self._node_config.on_start_commands:
                 await self._run_command(command)
-        except Exception:
+        except Exception as e:
             logger.exception("Starting `%s` node failed!", self)
             self._state = NodeState.STOPPED
             # TODO: handle stop / state cleanup. State cleanup should be in stages to accommodate different stages
+            self._emit_event("start_failed", {"state": self._state.value, "error": str(e)})
 
             await self._stop_activity(self._activity)
             await self._activity.agreement.terminate()
@@ -182,6 +243,7 @@ class Node:
 
         self._state = NodeState.STARTED
         self._background_task = None
+        self._emit_event("started", {"state": self._state.value})
 
         logger.info("Starting `%s` node done", self)
 
@@ -193,6 +255,7 @@ class Node:
             return
 
         logger.info("Stopping `%s` node...", self)
+        self._emit_event("stopping", {"state": self._state.value})
 
         self._state = NodeState.STOPPING
 
@@ -212,6 +275,7 @@ class Node:
         self._activity = None
 
         self._state = NodeState.STOPPED
+        self._emit_event("stopped", {"state": self._state.value})
 
         logger.info("Stopping `%s` node done", self)
 
@@ -229,7 +293,9 @@ class Node:
         try:
             await command_func(
                 WorkContext(
-                    activity=self._activity, default_deploy_args=self._get_default_deploy_args()
+                    activity=self._activity,
+                    default_deploy_args=self._get_default_deploy_args(),
+                    extra=dict(node=self),
                 ),
                 *command_args,
                 **command_kwargs,
@@ -270,6 +336,9 @@ class Node:
     async def _on_activity_not_accessible(self, monitor: MonitorClusterNodeSidecar):
         logger.warning(
             "Terminating node `%s` %s is no longer accessible", self.node_id, monitor.name
+        )
+        self._emit_event(
+            "activity_not_accessible", {"state": self._state.value, "monitor": monitor.name}
         )
 
         await self.stop()
