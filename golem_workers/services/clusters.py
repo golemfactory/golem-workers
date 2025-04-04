@@ -25,7 +25,7 @@ class ClusterService(IClusterService):
         golem_node: GolemNode,
         clusters_lock: asyncio.Lock,
         clusters: MutableMapping[str, Cluster],
-        port_allocation_service = None,
+        port_allocation_service=None,
     ):
         self._golem_node = golem_node
         self._clusters_lock = clusters_lock
