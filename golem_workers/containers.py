@@ -27,9 +27,10 @@ async def golem_node_context(app_key: str):
 async def get_port_allocation_manager():
     port_allocation_manager = AllocationManager()
 
-    yield port_allocation_manager
-
-    await port_allocation_manager.shutdown()
+    try:
+        yield port_allocation_manager
+    finally:
+        port_allocation_manager.shutdown()
 
 
 async def clusters_context():
