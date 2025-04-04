@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Any
+from typing import List, Optional
 
 from golem_workers.services.types import (
     CreateClusterRequest,
@@ -12,6 +12,12 @@ from golem_workers.services.types import (
     CreateNodeResponse,
     GetNodeResponse,
     DeleteNodeResponse,
+    PortAllocationConfig,
+    PortAllocationOut,
+    PortReleaseResult,
+    ClusterPortReleaseResult,
+    AllocationStatus,
+    PortStatistics,
 )
 
 
@@ -71,43 +77,48 @@ class IPortAllocationService(ABC):
     """Interface for port allocation operations."""
 
     @abstractmethod
-    def get_config(self) -> Dict[str, Any]:
+    def get_config(self) -> PortAllocationConfig:
         """Get the current port allocation configuration."""
         pass
 
     @abstractmethod
-    def allocate_port(self) -> Dict[str, Any]:
+    def allocate_port(self) -> PortAllocationOut:
         """Allocate a random available port."""
         pass
 
     @abstractmethod
-    def use_port(self, allocation_id: str, cluster_id: str, node_id: str) -> Dict[str, Any]:
+    def use_port(self, allocation_id: str, cluster_id: str, node_id: str) -> PortAllocationOut:
         """Mark a port as in use by a specific cluster and node."""
         pass
 
     @abstractmethod
-    def cancel_allocation(self, allocation_id: str) -> Dict[str, Any]:
+    def cancel_allocation(self, allocation_id: str) -> PortReleaseResult:
         """Cancel an allocation and release the port."""
         pass
 
     @abstractmethod
     def release_ports_by_cluster_node(
         self, cluster_id: str, node_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+    ) -> ClusterPortReleaseResult:
         """Release all ports associated with a cluster or node."""
         pass
 
     @abstractmethod
-    def get_allocation(self, allocation_id: str) -> Dict[str, Any]:
+    def get_allocation(self, allocation_id: str) -> PortAllocationOut:
         """Get details for a specific allocation."""
         pass
 
     @abstractmethod
     def list_allocations(
         self,
-        status: Optional[str] = None,
+        status: Optional[AllocationStatus] = None,
         cluster_id: Optional[str] = None,
         node_id: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+    ) -> List[PortAllocationOut]:
         """List allocations with optional filtering."""
+        pass
+
+    @abstractmethod
+    def get_statistics(self) -> "PortStatistics":
+        """Get statistics about port allocations."""
         pass

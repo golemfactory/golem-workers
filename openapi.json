@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Golem Workers Specification",
-    "version": "0.4.0"
+    "version": "0.5.0"
   },
   "paths": {
     "/": {
@@ -31,6 +31,7 @@
           "misc"
         ],
         "summary": "Get Proposals",
+        "description": "Get proposals based on the provided parameters.",
         "operationId": "get_proposals_get_proposals_post",
         "requestBody": {
           "required": true,
@@ -48,56 +49,6 @@
                       "demand": {
                         "payloads": [
                           "golem_workers.payloads.ClusterNodePayload"
-                        ]
-                      }
-                    }
-                  }
-                },
-                "minimal_gpu": {
-                  "summary": "Single GPU",
-                  "description": "This example shows how to select providers for Virtual Machine with any GPU support.",
-                  "value": {
-                    "market_config": {
-                      "demand": {
-                        "payloads": [
-                          {
-                            "golem_workers.payloads.ClusterNodePayload": {
-                              "runtime": "vm-nvidia",
-                              "min_mem_gib": 16,
-                              "min_storage_gib": 20,
-                              "outbound_urls": [
-                                "https://gpu-provider.dev.golem.network"
-                              ]
-                            }
-                          }
-                        ],
-                        "constraints": [
-                          "golem.!exp.gap-35.v1.inf.gpu.model=*"
-                        ]
-                      }
-                    }
-                  }
-                },
-                "multi_gpu": {
-                  "summary": "Multiple GPU",
-                  "description": "This example shows how to select providers for Virtual Machine with multiple GPU support.",
-                  "value": {
-                    "market_config": {
-                      "demand": {
-                        "payloads": [
-                          {
-                            "golem_workers.payloads.ClusterNodePayload": {
-                              "runtime": "vm-nvidia",
-                              "min_mem_gib": 16,
-                              "min_storage_gib": 20,
-                              "outbound_urls": [
-                                "https://gpu-provider.dev.golem.network"
-                              ]
-                            }
-                          }
-                        ],
-                        "constraints": [
-                          "golem.!exp.gap-35.v1.inf.gpu.d0.quantity>=2"
                         ]
                       }
                     }
@@ -189,7 +140,7 @@
               "examples": {
                 "testnet_linear_budget_vpn_reputation": {
                   "summary": "Average usage budget, VPN and reputation (testnet)",
-                  "description": "This example shows how to create a testnet cluster that support average usage budget, simple VPN network and Golem Reputation integration. Note that to use this example, integration with Golem Reputation is required at Golem Workers startup - refer to README for more information.",
+                  "description": "This example shows how to create a testnet cluster that support average usage budget, simple VPN network and Golem Reputation integration.",
                   "value": {
                     "cluster_id": "example",
                     "budget_types": {
@@ -207,73 +158,6 @@
                     "network_types": {
                       "default": {
                         "ip": "192.168.0.0/16"
-                      }
-                    },
-                    "node_types": {
-                      "default": {
-                        "market_config": {
-                          "filters": [
-                            {
-                              "golem_reputation.ProviderBlacklistPlugin": {
-                                "payment_network": "holesky"
-                              }
-                            }
-                          ],
-                          "sorters": [
-                            {
-                              "golem_reputation.ReputationScorer": {
-                                "payment_network": "holesky"
-                              }
-                            }
-                          ]
-                        }
-                      }
-                    }
-                  }
-                },
-                "mainnet_linear_budget_vpn_reputation": {
-                  "summary": "Average usage budget, VPN and reputation (mainnet)",
-                  "description": "This example shows how to create a mainnet cluster that support average usage budget, simple VPN network and Golem Reputation integration. Note that to use this example, integration with Golem Reputation is required at Golem Workers startup - refer to README for more information.",
-                  "value": {
-                    "cluster_id": "example",
-                    "payment_config": {
-                      "network": "polygon"
-                    },
-                    "budget_types": {
-                      "default": {
-                        "budget": {
-                          "golem_workers.budgets.AveragePerCpuUsageLinearModelBudget": {
-                            "average_cpu_load": 1.0,
-                            "average_duration_hours": 0.5,
-                            "average_max_cost": 1.5
-                          }
-                        },
-                        "scope": "cluster"
-                      }
-                    },
-                    "network_types": {
-                      "default": {
-                        "ip": "192.168.0.0/16"
-                      }
-                    },
-                    "node_types": {
-                      "default": {
-                        "market_config": {
-                          "filters": [
-                            {
-                              "golem_reputation.ProviderBlacklistPlugin": {
-                                "payment_network": "polygon"
-                              }
-                            }
-                          ],
-                          "sorters": [
-                            {
-                              "golem_reputation.ReputationScorer": {
-                                "payment_network": "polygon"
-                              }
-                            }
-                          ]
-                        }
                       }
                     }
                   }
@@ -332,7 +216,7 @@
           "clusters"
         ],
         "summary": "Get Cluster",
-        "description": "Reads cluster info and status.",
+        "description": "Get details for a specific cluster.",
         "operationId": "get_cluster_cluster__cluster_id__get",
         "parameters": [
           {
@@ -393,7 +277,7 @@
           "clusters"
         ],
         "summary": "Delete Cluster",
-        "description": "Marks cluster for deletion and schedules its stop.",
+        "description": "Delete a cluster.",
         "operationId": "delete_cluster_cluster__cluster_id__delete",
         "parameters": [
           {
@@ -485,7 +369,7 @@
               "examples": {
                 "echo_test": {
                   "summary": "modelserve/echo-test:2",
-                  "description": "This example shows how to run echo test. It will use a VPN and proxy traffic from local machine to running vm at http://localhost:8080.",
+                  "description": "This example shows how to run echo test with VPN",
                   "value": {
                     "cluster_id": "example",
                     "node_networks": {
@@ -502,90 +386,7 @@
                             }
                           ]
                         }
-                      },
-                      "on_start_commands": [
-                        {
-                          "golem_workers.work.deploy_and_start_activity": {
-                            "deploy_timeout_minutes": 60
-                          }
-                        },
-                        {
-                          "golem_workers.work.run_in_shell": [
-                            [
-                              "nginx"
-                            ]
-                          ]
-                        }
-                      ],
-                      "sidecars": [
-                        {
-                          "golem_workers.sidecars.WebsocatPortTunnelSidecar": {
-                            "network_name": "default",
-                            "local_port": "8080",
-                            "remote_port": "80"
-                          }
-                        }
-                      ]
-                    }
-                  }
-                },
-                "automatic": {
-                  "summary": "modelserve/automatic1111:4",
-                  "description": "This example shows how to run automatic with example model image. Automatic will take few minutes to download example model from Huggingface to provider. It will use a VPN and proxy traffic from local machine to running vm at http://localhost:8080.",
-                  "value": {
-                    "cluster_id": "example",
-                    "node_networks": {
-                      "default": {}
-                    },
-                    "node_config": {
-                      "market_config": {
-                        "demand": {
-                          "payloads": [
-                            {
-                              "golem_workers.payloads.ClusterNodePayload": {
-                                "runtime": "vm-nvidia",
-                                "image_tag": "modelserve/automatic1111:4",
-                                "outbound_urls": [
-                                  "https://gpu-provider.dev.golem.network"
-                                ]
-                              }
-                            }
-                          ]
-                        }
-                      },
-                      "on_start_commands": [
-                        {
-                          "golem_workers.work.deploy_and_start_activity": {
-                            "deploy_timeout_minutes": 60
-                          }
-                        },
-                        {
-                          "golem_workers.work.prepare_and_run_ssh_server": {
-                            "ssh_private_key_path": "/tmp/ssh_key"
-                          }
-                        },
-                        {
-                          "golem_workers.work.run_in_shell": [
-                            "cd /usr/src/app/ && ./start.sh --model_url https://gpu-provider.dev.golem.network/models/v1-5-pruned-emaonly.safetensors > /usr/src/app/output/log 2>&1 &"
-                          ]
-                        }
-                      ],
-                      "sidecars": [
-                        {
-                          "golem_workers.sidecars.WebsocatPortTunnelSidecar": {
-                            "network_name": "default",
-                            "local_port": "8080",
-                            "remote_port": "8000"
-                          }
-                        },
-                        {
-                          "golem_workers.sidecars.WebsocatPortTunnelSidecar": {
-                            "network_name": "default",
-                            "local_port": "8081",
-                            "remote_port": "8001"
-                          }
-                        }
-                      ]
+                      }
                     }
                   }
                 }
@@ -643,7 +444,7 @@
           "nodes"
         ],
         "summary": "Get Node",
-        "description": "Read node info and status",
+        "description": "Get details for a specific node.",
         "operationId": "get_node_cluster__cluster_id__node__node_id__get",
         "parameters": [
           {
@@ -713,7 +514,7 @@
           "nodes"
         ],
         "summary": "Delete Node",
-        "description": "Marks node for deletion and schedules its stop.",
+        "description": "Delete a node from a cluster.",
         "operationId": "delete_node_cluster__cluster_id__node__node_id__delete",
         "parameters": [
           {
@@ -1220,6 +1021,38 @@
         }
       }
     },
+    "/ports/statistics": {
+      "get": {
+        "tags": [
+          "ports"
+        ],
+        "summary": "Get Port Statistics",
+        "description": "Provides statistics about port allocation usage.",
+        "operationId": "get_port_statistics_ports_statistics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortStatistics"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Unhandled server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPGenericError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ports/release": {
       "delete": {
         "tags": [
@@ -1617,58 +1450,17 @@
       },
       "GetProposalsRequest": {
         "properties": {
-          "subnet": {
+          "market_config": {
             "anyOf": [
               {
-                "type": "string"
+                "additionalProperties": true,
+                "type": "object"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Subnet",
-            "description": "The subnet to use for gathering proposals. Specify a subnet tag to filter providers."
-          },
-          "payment_network": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/PaymentNetwork"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Payment network to use for the proposals. Available networks: mainnet, sepolia, rinkeby, goerli, holesky, polygon, mumbai, amoy."
-          },
-          "runtime": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Runtime",
-            "description": "The runtime environment to use (e.g., 'vm', 'wasm')."
-          },
-          "gpu_model": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Gpu Model",
-            "description": "Filter proposals by specific GPU model requirements."
-          },
-          "collection_time_seconds": {
-            "type": "number",
-            "title": "Collection Time Seconds",
-            "description": "Number of seconds of how long proposals should be gathered on the market. Too small value can result in less or even no proposals.",
-            "default": 5
+            "title": "Market Config"
           }
         },
         "additionalProperties": false,
@@ -2017,20 +1809,6 @@
         "title": "PaymentConfig",
         "description": "Definition of the details related to payment methods."
       },
-      "PaymentNetwork": {
-        "type": "string",
-        "enum": [
-          "mainnet",
-          "sepolia",
-          "rinkeby",
-          "goerli",
-          "holesky",
-          "polygon",
-          "mumbai",
-          "amoy"
-        ],
-        "title": "PaymentNetwork"
-      },
       "PortAllocationResponse": {
         "properties": {
           "allocation_id": {
@@ -2099,6 +1877,40 @@
           "status"
         ],
         "title": "PortReleaseResponse"
+      },
+      "PortStatistics": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "total_ports": {
+            "type": "integer",
+            "title": "Total Ports"
+          },
+          "allocated_ports": {
+            "type": "integer",
+            "title": "Allocated Ports"
+          },
+          "in_use_ports": {
+            "type": "integer",
+            "title": "In Use Ports"
+          },
+          "available_ports": {
+            "type": "integer",
+            "title": "Available Ports"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status",
+          "total_ports",
+          "allocated_ports",
+          "in_use_ports",
+          "available_ports"
+        ],
+        "title": "PortStatistics"
       },
       "PortUseRequest": {
         "properties": {
@@ -2321,6 +2133,10 @@
     {
       "name": "misc",
       "description": "General endpoints for utilities."
+    },
+    {
+      "name": "ports",
+      "description": "Endpoints for port allocation management."
     }
   ]
 }

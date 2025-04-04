@@ -1,5 +1,7 @@
 from pydantic import Field, model_validator, BaseModel, ConfigDict
 from typing import Mapping, Optional, Dict, Any, List
+from enum import Enum
+from datetime import datetime
 
 from golem_workers.models import (
     PaymentConfig,
@@ -107,3 +109,64 @@ class GetNodeResponse(BaseModel):
 class DeleteNodeResponse(BaseModel):
     model_config = ConfigDict(extra="ignore")
     node: NodeOut
+
+
+# Port Allocation types
+class AllocationStatus(str, Enum):
+    ALLOCATED = "allocated"
+    IN_USE = "in_use"
+    RELEASED = "released"
+
+
+class PortAllocationConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    min_port: int
+    max_port: int
+    expiration_minutes: int
+
+
+class PortAllocation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    allocation_id: str
+    port: int
+    status: AllocationStatus
+    expires_at: datetime
+    cluster_id: Optional[str] = None
+    node_id: Optional[str] = None
+
+
+class PortAllocationOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    allocation_id: str
+    port: int
+    status: AllocationStatus
+    expires_at: str
+    cluster_id: Optional[str] = None
+    node_id: Optional[str] = None
+
+
+class PortReleaseResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    port: int
+    status: AllocationStatus
+
+
+class ClusterPortReleaseResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    released_ports: List[int]
+    count: int
+
+
+class PortStatistics(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: str
+    total_ports: int
+    allocated_ports: int
+    in_use_ports: int
+    available_ports: int

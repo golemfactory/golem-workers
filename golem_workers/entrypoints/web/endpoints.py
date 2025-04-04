@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import List, Optional
 
-from fastapi import APIRouter, Body, Depends, Path, Query, Request, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from typing_extensions import Annotated
@@ -31,6 +31,7 @@ from golem_workers.services.types import (
     DeleteNodeResponse,
     GetProposalsRequest,
     GetProposalsResponse,
+    PortStatistics,
 )
 
 
@@ -382,11 +383,21 @@ async def use_port(
     port_service: IPortAllocationService = Depends(get_port_allocation_service),
 ) -> PortUseResponse:
     """Mark a port as in use by a specific cluster and node."""
-    return port_service.use_port(
-        request_data.allocation_id,
-        request_data.cluster_id,
-        request_data.node_id,
-    )
+
+    try:
+        return port_service.use_port(
+            request_data.allocation_id,
+            request_data.cluster_id,
+            request_data.node_id,
+        )
+    except KeyError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Allocation with ID '{request_data.allocation_id}' not found",
+        )
+    except ValueError as e:
+        # Handle invalid state transitions
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.delete(
@@ -400,7 +411,14 @@ async def cancel_port_allocation(
     port_service: IPortAllocationService = Depends(get_port_allocation_service),
 ) -> PortReleaseResponse:
     """Cancel a port allocation and release the port."""
-    return port_service.cancel_allocation(allocation_id)
+
+    try:
+        return port_service.cancel_allocation(allocation_id)
+    except KeyError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Allocation with ID '{allocation_id}' not found",
+        )
 
 
 @router.get(
@@ -420,6 +438,19 @@ async def list_port_allocations(
 
 
 @router.get(
+    "/ports/statistics",
+    tags=[Tags.PORTS],
+    responses=responses,
+    description="Provides statistics about port allocation usage.",
+)
+async def get_port_statistics(
+    port_service: IPortAllocationService = Depends(get_port_allocation_service),
+) -> PortStatistics:
+    """Get statistics about port allocations."""
+    return port_service.get_statistics()
+
+
+@router.get(
     "/ports/{allocation_id}",
     tags=[Tags.PORTS],
     responses={**responses, **not_found_responses},
@@ -430,7 +461,14 @@ async def get_port_allocation(
     port_service: IPortAllocationService = Depends(get_port_allocation_service),
 ) -> PortAllocationResponse:
     """Get details about a specific port allocation."""
-    return port_service.get_allocation(allocation_id)
+
+    try:
+        return port_service.get_allocation(allocation_id)
+    except KeyError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Allocation with ID '{allocation_id}' not found",
+        )
 
 
 @router.delete(

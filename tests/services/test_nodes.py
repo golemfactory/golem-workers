@@ -37,12 +37,7 @@ def mock_node():
 
 @pytest.fixture
 def mock_node_out():
-    return NodeOut(
-        node_id="test-node-id",
-        state=NodeState.CREATED,
-        network_ips={},
-        labels={}
-    )
+    return NodeOut(node_id="test-node-id", state=NodeState.CREATED, network_ips={}, labels={})
 
 
 @pytest.fixture
