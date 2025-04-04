@@ -143,6 +143,51 @@ async def create_cluster(
                                 "ip": "192.168.0.0/16",
                             },
                         },
+                        "node_types": {
+                            "default": {
+                                "market_config": {
+                                    "filters": [
+                                        {
+                                            "golem_reputation.ProviderBlacklistPlugin": {
+                                                "payment_network": "holesky",
+                                            },
+                                        },
+                                    ],
+                                    "sorters": [
+                                        {
+                                            "golem_reputation.ReputationScorer": {
+                                                "payment_network": "holesky",
+                                            },
+                                        },
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                },
+                "mainnet_linear_budget_vpn_reputation": {
+                    "summary": "Average usage budget, VPN and reputation (mainnet)",
+                    "description": "This example shows how to create a mainnet cluster that support average usage budget, simple VPN network and Golem Reputation integration. Note that to use this example, integration with Golem Reputation is required at Golem Workers startup - refer to README for more information.",
+                    "value": {
+                        "cluster_id": "example",
+                        "payment_config": {"network": "polygon"},
+                        "budget_types": {
+                            "default": {
+                                "budget": {
+                                    "golem_workers.budgets.AveragePerCpuUsageLinearModelBudget": {
+                                        "average_cpu_load": 1.0,
+                                        "average_duration_hours": 0.5,
+                                        "average_max_cost": 1.5,
+                                    },
+                                },
+                                "scope": "cluster",
+                            },
+                        },
+                        "network_types": {
+                            "default": {
+                                "ip": "192.168.0.0/16",
+                            },
+                        },
                     },
                 },
             },
@@ -460,4 +505,3 @@ async def get_port_allocation(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Allocation with ID '{allocation_id}' not found",
         )
-

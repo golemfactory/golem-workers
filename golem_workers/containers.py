@@ -70,7 +70,7 @@ class ServicesContainer(DeclarativeContainer):
         PortAllocationService,
         allocation_manager=port_allocation_manager,
     )
-    
+
     # Service providers
     proposal_service = providers.Factory(
         ProposalService,
@@ -92,7 +92,6 @@ class ServicesContainer(DeclarativeContainer):
         clusters=clusters,
         port_allocation_service=port_allocation_service,
     )
-
 
 
 class Container(DeclarativeContainer):

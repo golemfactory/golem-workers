@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+      - name: Install poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: '1.7.1'
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
+          plugins: "poethepoet[poetry_plugin]"
+      - name: Cache dependencies
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: .venv
+          key: venv-${{ hashFiles('**/poetry.lock') }}
+      - name: Install dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: poetry install 
+      - name: Run code style checks
+        run: poetry poe checks_codestyle
+      - name: Run license checks
+        run: poetry poe checks_license
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+      - name: Install poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: '1.7.1'
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
+          plugins: "poethepoet[poetry_plugin]"
+      - name: Cache dependencies
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: .venv
+          key: venv-${{ hashFiles('**/poetry.lock') }}
+      - name: Install dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: poetry install 
+      - name: Extract OpenAPI spec
+        run: poetry poe extract_openapi
+        env:
+          YAGNA_APPKEY: ignored_but_needed

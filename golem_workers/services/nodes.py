@@ -25,7 +25,7 @@ class NodeService(INodeService):
         self,
         golem_node: GolemNode,
         clusters: Mapping[str, Cluster],
-        port_allocation_service = None,
+        port_allocation_service=None,
     ):
         self._golem_node = golem_node
         self._clusters = clusters
